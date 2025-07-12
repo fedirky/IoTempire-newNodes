@@ -91,4 +91,4 @@ msg.port   = "/dev/ttyUSB1";
 
 ## License
 
-MIT © Your Name
+MIT © Fedir Kyrychenko
