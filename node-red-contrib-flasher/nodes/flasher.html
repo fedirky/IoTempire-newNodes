@@ -1,0 +1,47 @@
+<!-- BODY -->
+<script type="text/html" data-template-name="flasher">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
+    <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01/test01">
+  </div>
+  <div class="form-row">
+    <label for="node-input-port"><i class="fa fa-plug"></i> Serial Port</label>
+    <input type="text" id="node-input-port" placeholder="/dev/ttyUSB0">
+  </div>
+</script>
+
+<!-- HELP -->
+<script type="text/html" data-help-name="flasher">
+  <p>Executes <code>deploy serial --upload-port &lt;port&gt; &lt;folder&gt;</code> to flash controllers in the given folder.</p>
+  <p>You can also pass <code>msg.folder</code> or <code>msg.port</code> to override settings at runtime.</p>
+</script>
+
+<!-- EXAMPLES -->
+<script type="text/html" data-examples-name="flasher">
+  <ol>
+    <li>Inject empty payload → flashes <code>~/iot-systems/demo01/test01</code> via <code>/dev/ttyUSB0</code>.</li>
+    <li>Set <code>msg.folder</code> and <code>msg.port</code> to flash elsewhere.</li>
+  </ol>
+</script>
+
+<script type="text/javascript">
+  RED.nodes.registerType('flasher', {
+    category: 'network',
+    color: '#d65a31',
+    icon: 'fa-microchip',
+    inputs: 1,
+    outputs: 1,
+    defaults: {
+      name:   { value:"" },
+      folder: { value:"~/iot-systems/demo01/test01" },
+      port:   { value:"/dev/ttyUSB0" }
+    },
+    label: function() {
+      return this.name||"flasher";
+    }
+  });
+</script>
