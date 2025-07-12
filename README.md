@@ -16,7 +16,7 @@ A custom Node-RED node that flashes IoT controllers using the `deploy serial` co
 1. **Clone or download** this repository to your development machine.
 
    ```bash
-   git clone https://github.com/yourusername/node-red-contrib-flasher.git
+   git clone https://github.com/fedirky/IoTempire-newNodes
    cd node-red-contrib-flasher
    ```
 
