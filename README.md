@@ -49,12 +49,6 @@ After restarting, the **flasher** node will appear in the **network** category. 
 * **Folder** – path to the folder containing your node definitions (default: `~/iot-systems/demo01/test01`)
 * **Serial Port** – the device to use for flashing (default: `/dev/ttyUSB0`)
 
-You can also override these values at runtime by sending a message with:
-
-```js
-msg.folder = "/path/to/other/node-folder";
-msg.port   = "/dev/ttyUSB1";
-```
 
 ## Usage Example
 
