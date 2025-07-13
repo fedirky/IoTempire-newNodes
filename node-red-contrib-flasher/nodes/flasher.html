@@ -2,12 +2,19 @@
 <script type="text/html" data-template-name="flasher">
   <div class="form-row">
     <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-    <input type="text" id="node-input-name" placeholder="Name">
+    <input type="text" id="node-input-name" placeholder="Label (optional)">
   </div>
+
   <div class="form-row">
     <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
-    <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01/test01">
+    <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01">
   </div>
+
+  <div class="form-row">
+    <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node</label>
+    <input type="text" id="node-input-nodeName" placeholder="test01">
+  </div>
+
   <div class="form-row">
     <label for="node-input-port"><i class="fa fa-plug"></i> Serial Port</label>
     <input type="text" id="node-input-port" placeholder="/dev/ttyUSB0">
@@ -16,15 +23,16 @@
 
 <!-- HELP -->
 <script type="text/html" data-help-name="flasher">
-  <p>Executes <code>deploy serial --upload-port &lt;port&gt; &lt;folder&gt;</code> to flash controllers in the given folder.</p>
-  <p>You can also pass <code>msg.folder</code> or <code>msg.port</code> to override settings at runtime.</p>
+  <p>Flashes the selected node via <code>deploy serial</code>.</p>
+  <p>You choose a <strong>Folder</strong> and inside it a <strong>Node</strong> name; the full path will be <code>&lt;folder&gt;/&lt;node&gt;</code>.</p>
+  <p>Alternatively, override at runtime via <code>msg.folder</code>, <code>msg.nodeName</code> or <code>msg.port</code>.</p>
 </script>
 
 <!-- EXAMPLES -->
 <script type="text/html" data-examples-name="flasher">
   <ol>
-    <li>Inject empty payload → flashes <code>~/iot-systems/demo01/test01</code> via <code>/dev/ttyUSB0</code>.</li>
-    <li>Set <code>msg.folder</code> and <code>msg.port</code> to flash elsewhere.</li>
+    <li>Inject → flashes <code>~/iot-systems/demo01/test01</code> on <code>/dev/ttyUSB0</code>.</li>
+    <li>Send <code>msg.nodeName = 'another'</code> → flashes <code>~/iot-systems/demo01/another</code>.</li>
   </ol>
 </script>
 
@@ -36,12 +44,14 @@
     inputs: 1,
     outputs: 1,
     defaults: {
-      name:   { value:"" },
-      folder: { value:"~/iot-systems/demo01/test01" },
-      port:   { value:"/dev/ttyUSB0" }
+      name:     { value:"" },
+      folder:   { value:"~/iot-systems/demo01" },
+      nodeName: { value:"test01" },
+      port:     { value:"/dev/ttyUSB0" }
     },
     label: function() {
-      return this.name||"flasher";
+      return this.name||`flasher ${this.nodeName}`;
     }
   });
 </script>
+
