@@ -1,0 +1,48 @@
+<!-- BODY -->
+<script type="text/html" data-template-name="iot-init">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Label (optional)">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
+    <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node Name</label>
+    <input type="text" id="node-input-nodeName" placeholder="test01">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-wifiSSID"><i class="fa fa-wifi"></i> WiFi SSID</label>
+    <input type="text" id="node-input-wifiSSID" placeholder="Your WiFi SSID">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-wifiPassword"><i class="fa fa-lock"></i> WiFi Password</label>
+    <input type="password" id="node-input-wifiPassword" placeholder="Your WiFi Password">
+  </div>
+</script>
+
+<script type="text/javascript">
+  RED.nodes.registerType('iot-init', {
+    category: 'network',
+    color: '#1f77b4',
+    icon: 'fa-folder-open',
+    inputs: 1,
+    outputs: 1,
+    defaults: {
+      name:         { value:"" },
+      folder:       { value:"~/iot-systems/demo" },
+      nodeName:     { value:"test01" },
+      wifiSSID:     { value:"" },
+      wifiPassword: { value:"" }
+    },
+    label: function() {
+      return this.name||`init ${this.nodeName}`;
+    }
+  });
+</script>
+

@@ -1,8 +1,15 @@
 {
   "name": "node-red-contrib-flasher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A Node-RED node to flash controllers via deploy serial",
-  "keywords": ["node-red", "flash", "serial", "iot"],
+  "main": "nodes/flasher.js",
+  "keywords": [
+    "node-red",
+    "flash",
+    "serial",
+    "iot"
+  ],
+  "author": "Bertolden aka fedirky",
   "license": "MIT",
   "node-red": {
     "nodes": {
@@ -10,4 +17,5 @@
     }
   }
 }
+
 

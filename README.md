@@ -1,87 +1,103 @@
-# node-red-contrib-flasher
+# node-red-contrib-flasher & node-red-contrib-folder-init
 
-A custom Node-RED node that flashes IoT controllers using the `deploy serial` command from IoT Empower. It allows you to specify the target folder containing your node definitions and the serial port to use for uploading.
+This repository includes **two custom Node-RED nodes** designed to work with IoT Empower:
+
+- `node-red-contrib-flasher`: flashes a selected node over serial using `iot exec deploy serial`
+- `node-red-contrib-folder-init`: initializes a node folder and sets up WiFi credentials
 
 ## Features
 
-* Flash one or more controllers from a specified folder
-* Uses `iot exec deploy serial --upload-port <port>` under the hood
-* Configurable folder path (defaults to `~/iot-systems/demo01/test01`)
-* Configurable serial port (defaults to `/dev/ttyUSB0`)
-* Overrides via `msg.folder` and `msg.port` at runtime
-* Status indicators in the Node-RED editor
+### node-red-contrib-flasher
+* Flashes a specific node using `iot exec deploy serial --upload-port`
+* Configurable folder, node name, and serial port
+* Can be overridden dynamically via `msg.folder`, `msg.nodeName`, `msg.port`
+
+### node-red-contrib-folder-init
+* Initializes a system folder structure and node template
+* Automatically copies default `system.conf` if missing
+* Configures WiFi SSID and password in `system.conf`
+* Can be overridden dynamically via `msg.folder`, `msg.nodeName`, `msg.wifiSSID`, `msg.wifiPassword`
 
 ## Installation
 
-1. **Clone or download** this repository to your development machine.
+To install **both extensions at once**, use:
 
-   ```bash
-   git clone https://github.com/fedirky/IoTempire-newNodes
-   cd node-red-contrib-flasher
-   ```
+```bash
+cd path/to/your/dev/folder
 
-2. **Initialize and link** your package globally:
+# Clone the repository (or copy the subfolders manually)
+git clone https://github.com/fedirky/IoTempire-newNodes
+cd IoTempire-newNodes
 
-   ```bash
-   npm install
-   npm link
-   ```
+# Install dependencies and link each extension separately
+cd node-red-contrib-flasher
+npm install
+npm link
 
-3. **Link into your Node-RED user directory** (`~/.node-red`):
+cd ../node-red-contrib-folder-init
+npm install
+npm link
 
-   ```bash
-   cd ~/.node-red
-   npm link node-red-contrib-flasher
-   ```
+# Go to your local Node-RED user directory
+cd ~/.node-red
 
-4. **Restart Node-RED** so it picks up the new node:
+# Link both extensions into Node-RED
+npm link node-red-contrib-flasher node-red-contrib-folder-init
+```
 
-   ```bash
-   iot exec node-red-stop
-   iot exec node-red
-   ```
+Then restart Node-RED:
 
-## Configuration
+```bash
+iot exec node-red-stop
+iot exec node-red
+```
 
-After restarting, the **flasher** node will appear in the **network** category. Drag it onto your flow and double-click to open its settings:
+## Node Configuration
 
-* **Name** – an optional label for the node
-* **Folder** – path to the folder containing your node definitions (default: `~/iot-systems/demo01/test01`)
-* **Serial Port** – the device to use for flashing (default: `/dev/ttyUSB0`)
+### Flasher Node (`flasher`)
+- **Folder**: Base path to the node (e.g. `~/iot-systems/demo01`)
+- **Node Name**: The specific node folder (e.g. `test01`)
+- **Port**: Serial port used to flash (e.g. `/dev/ttyUSB0`)
 
+Runtime override with:
+```js
+msg.folder = "~/iot-systems/demo01";
+msg.nodeName = "node1";
+msg.port = "/dev/ttyUSB1";
+```
 
-## Usage Example
+### Folder Init Node (`iot-init`)
+- **Folder**: Where to create the system and node structure
+- **Node Name**: Folder name for the new node
+- **WiFi SSID / Password**: Credentials to write into `system.conf`
 
-1. Add an **Inject** node and configure it to send an empty payload.
-2. Wire it into the **Flasher** node.
-3. Wire the Flasher node into a **Debug** node.
-4. Deploy your flow and trigger the inject.
-5. Observe the flashing progress via the node’s status and the debug output:
+Runtime override with:
+```js
+msg.folder = "~/iot-systems/demo02";
+msg.nodeName = "node2";
+msg.wifiSSID = "MyWiFi";
+msg.wifiPassword = "secret123";
+```
+
+## Output Format
+
+Both nodes return messages in the following format:
 
 ```json
-// On success:
 {
   "success": true,
-  "output": "Flashing done: [output from deploy CLI]"
-}
-
-// On failure:
-{
-  "success": false,
-  "error": "[error message from CLI]"
+  "output": "[stdout or status message]"
 }
 ```
 
-## Notes
+On error:
 
-* The Flasher node runs:
-
-  ```bash
-  cd <configured-folder> && iot exec deploy serial --upload-port <configured-port>
-  ```
-
-  under the hood, ensuring that the `deploy` utility runs from within the target node directory.
-* Make sure the `iot` CLI and `deploy` command are available in your environment and properly configured (e.g. `system.conf` in IoT Empower).
+```json
+{
+  "success": false,
+  "error": "[stderr or error message]"
+}
+```
 
 ## License
 
