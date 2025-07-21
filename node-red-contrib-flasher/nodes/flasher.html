@@ -5,6 +5,16 @@
     <input type="text" id="node-input-name" placeholder="Label (optional)">
   </div>
 
+  <!-- Sensor selection added -->
+  <div class="form-row">
+    <label for="node-input-sensor"><i class="fa fa-thermometer-half"></i> Sensor</label>
+    <select id="node-input-sensor">
+      <option value="dht">Temperature/Humidity (DHT)</option>
+      <option value="mfrc522">Tag Reader (MFRC522)</option>
+      <option value="hcsr04">Ultrasonic Distance (HCSR04)</option>
+    </select>
+  </div>
+
   <div class="form-row">
     <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
     <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01">
@@ -24,15 +34,15 @@
 <!-- HELP -->
 <script type="text/html" data-help-name="flasher">
   <p>Flashes the selected node via <code>deploy serial</code>.</p>
-  <p>You choose a <strong>Folder</strong> and inside it a <strong>Node</strong> name; the full path will be <code>&lt;folder&gt;/&lt;node&gt;</code>.</p>
-  <p>Alternatively, override at runtime via <code>msg.folder</code>, <code>msg.nodeName</code> or <code>msg.port</code>.</p>
+  <p>You choose a <strong>Sensor</strong>, a <strong>Folder</strong> and inside it a <strong>Node</strong> name; the full path will be <code>&lt;folder&gt;/&lt;node&gt;</code>.</p>
+  <p>Alternatively, override at runtime via <code>msg.sensor</code>, <code>msg.folder</code>, <code>msg.nodeName</code> or <code>msg.port</code>.</p>
 </script>
 
 <!-- EXAMPLES -->
 <script type="text/html" data-examples-name="flasher">
   <ol>
-    <li>Inject → flashes <code>~/iot-systems/demo01/test01</code> on <code>/dev/ttyUSB0</code>.</li>
-    <li>Send <code>msg.nodeName = 'another'</code> → flashes <code>~/iot-systems/demo01/another</code>.</li>
+    <li>Inject → flashes <code>~/iot-systems/demo01/test01</code> using the DHT sensor on <code>/dev/ttyUSB0</code>.</li>
+    <li>Send <code>msg.sensor = 'mfrc522'</code> → flashes using the MFRC522 reader.</li>
   </ol>
 </script>
 
@@ -45,13 +55,13 @@
     outputs: 1,
     defaults: {
       name:     { value:"" },
+      sensor:   { value:"dht" },
       folder:   { value:"~/iot-systems/demo01" },
       nodeName: { value:"test01" },
       port:     { value:"/dev/ttyUSB0" }
     },
     label: function() {
-      return this.name||`flasher ${this.nodeName}`;
+      return this.name || `flasher ${this.sensor} ${this.nodeName}`;
     }
   });
 </script>
-
