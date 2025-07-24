@@ -9,19 +9,23 @@ module.exports = function(RED) {
     const node = this;
 
     // Expand ~/ to absolute path
-    const baseFolder = config.folder.replace(/^~\//, os.homedir() + "/");
-    const baseNode   = config.nodeName;
-    const port       = config.port;
-    const sensor     = config.sensor;
+    const baseFolder     = config.folder.replace(/^~\//, os.homedir() + "/");
+    const baseNode       = config.nodeName;
+    const port           = config.port;
+    const sensor         = config.sensor;
+    const mqttChannel    = config.mqttChannel;
+    const controllerType = config.controllerType;
 
     node.status({ fill: "blue", shape: "dot", text: "ready" });
 
     node.on("input", function(msg) {
       // Override via msg if provided
-      const folder       = msg.folder   || baseFolder;
-      const nodeName     = msg.nodeName || baseNode;
-      const uploadPort   = msg.port     || port;
-      const chosenSensor = msg.sensor   || sensor;
+      const folder            = msg.folder   || baseFolder;
+      const nodeName          = msg.nodeName || baseNode;
+      const uploadPort        = msg.port     || port;
+      const chosenSensor      = msg.sensor   || sensor;
+      const chosenMqttChannel = msg.mqttChannel || mqttChannel;
+      const chosenController  = msg.controllerType || controllerType;
 
       // Validate sensor selection
       const validSensors = ["dht", "mfrc522", "hcsr04"];
@@ -34,6 +38,7 @@ module.exports = function(RED) {
       // Full path to node folder
       const targetFolder = path.join(folder, nodeName);
       const setupFile    = path.join(targetFolder, 'setup.cpp');
+      const confFile     = path.join(targetFolder, 'node.conf');
 
       // Clear or create new setup.cpp
       try {
@@ -45,17 +50,27 @@ module.exports = function(RED) {
         return;
       }
 
+      // Write node.conf with controllerType
+      try {
+        fs.writeFileSync(confFile, `board="${chosenController}"\n`);
+        node.log(`Wrote node.conf with board="${chosenController}"`);
+      } catch (err) {
+        node.error(`Failed to write node.conf: ${err.message}`);
+        node.status({ fill: "red", shape: "ring", text: "config error" });
+        return;
+      }
+
       // Generate code based on sensor
       let setupCode = '';
       switch (chosenSensor) {
         case 'dht':
-          setupCode = 'dht("ht01", D1);';
+          setupCode = `dht(${chosenMqttChannel}, D1);`;
           break;
         case 'mfrc522':
-          setupCode = 'mfrc522(rfid1, 32);';
+          setupCode = `mfrc522(${chosenMqttChannel}, 32);`;
           break;
         case 'hcsr04':
-          setupCode = 'hcsr04(distance, D5, D6).with_precision(10);';
+          setupCode = `hcsr04(${chosenMqttChannel}, D5, D6).with_precision(10);`;
           break;
       }
 

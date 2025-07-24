@@ -10,10 +10,10 @@
       <div>
         <ul id="node-config-flasher-tabs" style="margin-bottom:10px;">
           <li class="red-ui-tab active" id="red-ui-tab-flasher-folder" style="width:50%;">
-            <a href="#flasher-tab-folder" class="red-ui-tab-label">System Folder</a><span class="red-ui-tabs-fade"></span>
+            <a href="#flasher-tab-folder" class="red-ui-tab-label">Flashing Info</a><span class="red-ui-tabs-fade"></span>
           </li>
           <li class="red-ui-tab" id="red-ui-tab-flasher-sensor" style="width:50%;">
-            <a href="#flasher-tab-sensor" class="red-ui-tab-label">Sensor Settings</a><span class="red-ui-tabs-fade"></span>
+            <a href="#flasher-tab-sensor" class="red-ui-tab-label">Controller Info</a><span class="red-ui-tabs-fade"></span>
           </li>
         </ul>
       </div>
@@ -37,12 +37,24 @@
     </div>
     <div id="flasher-tab-sensor" style="display:none;">
       <div class="form-row">
+        <label for="node-input-controllerType"><i class="fa fa-microchip"></i> Controller Type</label>
+        <select id="node-input-controllerType">
+          <option value="Wemos D1 Mini">Wemos D1 Mini</option>
+          <option value="m5stickc">M5StickC</option>
+          <!-- add more controller types here -->
+        </select>
+      </div>
+      <div class="form-row">
         <label for="node-input-sensor"><i class="fa fa-thermometer-half"></i> Sensor</label>
         <select id="node-input-sensor">
           <option value="dht">Temperature/Humidity (DHT)</option>
           <option value="mfrc522">Tag Reader (MFRC522)</option>
           <option value="hcsr04">Ultrasonic Distance (HCSR04)</option>
         </select>
+      </div>
+      <div class="form-row">
+        <label for="node-input-mqttChannel"><i class="fa fa-share-alt"></i> MQTT Channel</label>
+        <input type="text" id="node-input-mqttChannel" placeholder="topic/name">
       </div>
     </div>
   </div>
@@ -56,14 +68,16 @@
     inputs: 1,
     outputs: 1,
     defaults: {
-      name:     { value: "" },
-      sensor:   { value: "dht" },
-      folder:   { value: "~/iot-systems/demo01" },
-      nodeName: { value: "test01" },
-      port:     { value: "/dev/ttyUSB0" }
+      name:            { value: "" },
+      controllerType:  { value: "Wemos D1 Mini" },
+      sensor:          { value: "dht" },
+      folder:          { value: "~/iot-systems/demo01" },
+      nodeName:        { value: "test01" },
+      port:            { value: "/dev/ttyUSB0" },
+      mqttChannel:     { value: "" }
     },
     label: function() {
-      return this.name || `flasher ${this.sensor} ${this.nodeName}`;
+      return this.name || `flasher ${this.controllerType} ${this.sensor} ${this.nodeName}`;
     },
     oneditprepare: function() {
       // Populate fields
@@ -72,6 +86,8 @@
       $("#node-input-nodeName").val(this.nodeName);
       $("#node-input-port").val(this.port);
       $("#node-input-sensor").val(this.sensor);
+      $("#node-input-mqttChannel").val(this.mqttChannel);
+      $("#node-input-controllerType").val(this.controllerType);
 
       // Tab click logic
       $("#node-config-flasher-tabs li").click((e) => {
@@ -85,17 +101,27 @@
 
       // Update node properties and label on change
       function updateNode() {
-        var n = this; // context
-        n.name = $("#node-input-name").val();
-        n.folder = $("#node-input-folder").val();
-        n.nodeName = $("#node-input-nodeName").val();
-        n.port = $("#node-input-port").val();
-        n.sensor = $("#node-input-sensor").val();
-        $(".node-input-label").text(RED._(n.name || `flasher ${n.sensor} ${n.nodeName}`));
+        var n = this;
+        n.name           = $("#node-input-name").val();
+        n.folder         = $("#node-input-folder").val();
+        n.nodeName       = $("#node-input-nodeName").val();
+        n.port           = $("#node-input-port").val();
+        n.sensor         = $("#node-input-sensor").val();
+        n.mqttChannel    = $("#node-input-mqttChannel").val();
+        n.controllerType = $("#node-input-controllerType").val();
+        $(".node-input-label").text(RED._(n.name || `flasher ${n.controllerType} ${n.sensor} ${n.nodeName}`));
       }
 
       // Bind change events
-      ["#node-input-name", "#node-input-folder", "#node-input-nodeName", "#node-input-port", "#node-input-sensor"].forEach(selector => {
+      [
+        "#node-input-name",
+        "#node-input-folder",
+        "#node-input-nodeName",
+        "#node-input-port",
+        "#node-input-sensor",
+        "#node-input-mqttChannel",
+        "#node-input-controllerType"
+      ].forEach(selector => {
         $(selector).on('change', updateNode.bind(this));
       });
     }
