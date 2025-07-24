@@ -1,49 +1,51 @@
-<!-- BODY -->
 <script type="text/html" data-template-name="flasher">
+  <!-- Node form -->
   <div class="form-row">
     <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
     <input type="text" id="node-input-name" placeholder="Label (optional)">
   </div>
-
-  <!-- Sensor selection added -->
+  <!-- Tabs selector -->
   <div class="form-row">
-    <label for="node-input-sensor"><i class="fa fa-thermometer-half"></i> Sensor</label>
-    <select id="node-input-sensor">
-      <option value="dht">Temperature/Humidity (DHT)</option>
-      <option value="mfrc522">Tag Reader (MFRC522)</option>
-      <option value="hcsr04">Ultrasonic Distance (HCSR04)</option>
-    </select>
+    <div class="red-ui-tabs">
+      <div>
+        <ul id="node-config-flasher-tabs" style="margin-bottom:10px;">
+          <li class="red-ui-tab active" id="red-ui-tab-flasher-folder" style="width:50%;">
+            <a href="#flasher-tab-folder" class="red-ui-tab-label">System Folder</a><span class="red-ui-tabs-fade"></span>
+          </li>
+          <li class="red-ui-tab" id="red-ui-tab-flasher-sensor" style="width:50%;">
+            <a href="#flasher-tab-sensor" class="red-ui-tab-label">Sensor Settings</a><span class="red-ui-tabs-fade"></span>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
-
-  <div class="form-row">
-    <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
-    <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01">
+  <!-- Tab contents -->
+  <div id="node-config-flasher-tabs-content" style="min-height:100px;">
+    <div id="flasher-tab-folder" style="display:block;">
+      <div class="form-row">
+        <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
+        <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01">
+      </div>
+      <div class="form-row">
+        <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node</label>
+        <input type="text" id="node-input-nodeName" placeholder="test01">
+      </div>
+      <div class="form-row">
+        <label for="node-input-port"><i class="fa fa-plug"></i> Serial Port</label>
+        <input type="text" id="node-input-port" placeholder="/dev/ttyUSB0">
+      </div>
+    </div>
+    <div id="flasher-tab-sensor" style="display:none;">
+      <div class="form-row">
+        <label for="node-input-sensor"><i class="fa fa-thermometer-half"></i> Sensor</label>
+        <select id="node-input-sensor">
+          <option value="dht">Temperature/Humidity (DHT)</option>
+          <option value="mfrc522">Tag Reader (MFRC522)</option>
+          <option value="hcsr04">Ultrasonic Distance (HCSR04)</option>
+        </select>
+      </div>
+    </div>
   </div>
-
-  <div class="form-row">
-    <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node</label>
-    <input type="text" id="node-input-nodeName" placeholder="test01">
-  </div>
-
-  <div class="form-row">
-    <label for="node-input-port"><i class="fa fa-plug"></i> Serial Port</label>
-    <input type="text" id="node-input-port" placeholder="/dev/ttyUSB0">
-  </div>
-</script>
-
-<!-- HELP -->
-<script type="text/html" data-help-name="flasher">
-  <p>Flashes the selected node via <code>deploy serial</code>.</p>
-  <p>You choose a <strong>Sensor</strong>, a <strong>Folder</strong> and inside it a <strong>Node</strong> name; the full path will be <code>&lt;folder&gt;/&lt;node&gt;</code>.</p>
-  <p>Alternatively, override at runtime via <code>msg.sensor</code>, <code>msg.folder</code>, <code>msg.nodeName</code> or <code>msg.port</code>.</p>
-</script>
-
-<!-- EXAMPLES -->
-<script type="text/html" data-examples-name="flasher">
-  <ol>
-    <li>Inject → flashes <code>~/iot-systems/demo01/test01</code> using the DHT sensor on <code>/dev/ttyUSB0</code>.</li>
-    <li>Send <code>msg.sensor = 'mfrc522'</code> → flashes using the MFRC522 reader.</li>
-  </ol>
 </script>
 
 <script type="text/javascript">
@@ -54,14 +56,48 @@
     inputs: 1,
     outputs: 1,
     defaults: {
-      name:     { value:"" },
-      sensor:   { value:"dht" },
-      folder:   { value:"~/iot-systems/demo01" },
-      nodeName: { value:"test01" },
-      port:     { value:"/dev/ttyUSB0" }
+      name:     { value: "" },
+      sensor:   { value: "dht" },
+      folder:   { value: "~/iot-systems/demo01" },
+      nodeName: { value: "test01" },
+      port:     { value: "/dev/ttyUSB0" }
     },
     label: function() {
       return this.name || `flasher ${this.sensor} ${this.nodeName}`;
+    },
+    oneditprepare: function() {
+      // Populate fields
+      $("#node-input-name").val(this.name);
+      $("#node-input-folder").val(this.folder);
+      $("#node-input-nodeName").val(this.nodeName);
+      $("#node-input-port").val(this.port);
+      $("#node-input-sensor").val(this.sensor);
+
+      // Tab click logic
+      $("#node-config-flasher-tabs li").click((e) => {
+        var id = $(e.currentTarget).attr('id');
+        $("#node-config-flasher-tabs li").removeClass('active');
+        $(e.currentTarget).addClass('active');
+        var target = (id === 'red-ui-tab-flasher-folder') ? '#flasher-tab-folder' : '#flasher-tab-sensor';
+        $('#node-config-flasher-tabs-content > div').hide();
+        $(target).show();
+      });
+
+      // Update node properties and label on change
+      function updateNode() {
+        var n = this; // context
+        n.name = $("#node-input-name").val();
+        n.folder = $("#node-input-folder").val();
+        n.nodeName = $("#node-input-nodeName").val();
+        n.port = $("#node-input-port").val();
+        n.sensor = $("#node-input-sensor").val();
+        $(".node-input-label").text(RED._(n.name || `flasher ${n.sensor} ${n.nodeName}`));
+      }
+
+      // Bind change events
+      ["#node-input-name", "#node-input-folder", "#node-input-nodeName", "#node-input-port", "#node-input-sensor"].forEach(selector => {
+        $(selector).on('change', updateNode.bind(this));
+      });
     }
   });
 </script>
