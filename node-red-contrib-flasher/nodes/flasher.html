@@ -1,30 +1,65 @@
+<!-- flasher.html -->
+
+<!-- Config node template for folder settings -->
+<script type="text/html" data-template-name="flasher-folder">
+  <div class="form-row">
+    <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-config-input-name" placeholder="Optional">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-path"><i class="fa fa-folder-open"></i> Folder</label>
+    <input type="text" id="node-config-input-path" placeholder="~/iot-systems/demo">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-wifiSSID"><i class="fa fa-wifi"></i> WiFi SSID</label>
+    <input type="text" id="node-config-input-wifiSSID" placeholder="Your WiFi SSID">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-wifiPassword"><i class="fa fa-lock"></i> WiFi Password</label>
+    <input type="password" id="node-config-input-wifiPassword" placeholder="Your WiFi Password">
+  </div>
+</script>
+
+<script type="text/javascript">
+RED.nodes.registerType("flasher-folder", {
+  category: "config",
+  defaults: {
+    name:         { value: "" },
+    path:         { value: "~/iot-systems/demo", required: false },
+    wifiSSID:     { value: "", required: false },
+    wifiPassword: { value: "", required: false }
+  },
+  label: function () {
+    return this.name || this.path || this.nodeName || "folder";
+  }
+});
+</script>
+
+<!-- Main node template -->
 <script type="text/html" data-template-name="flasher">
-  <!-- Node form -->
   <div class="form-row">
     <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
     <input type="text" id="node-input-name" placeholder="Label (optional)">
   </div>
-  <!-- Tabs selector -->
   <div class="form-row">
     <div class="red-ui-tabs">
       <div>
         <ul id="node-config-flasher-tabs" style="margin-bottom:10px;">
           <li class="red-ui-tab active" id="red-ui-tab-flasher-folder" style="width:50%;">
-            <a href="#flasher-tab-folder" class="red-ui-tab-label">Flashing Info</a><span class="red-ui-tabs-fade"></span>
+            <a href="#flasher-tab-folder" class="red-ui-tab-label">Flashing Info</a>
           </li>
           <li class="red-ui-tab" id="red-ui-tab-flasher-sensor" style="width:50%;">
-            <a href="#flasher-tab-sensor" class="red-ui-tab-label">Controller Info</a><span class="red-ui-tabs-fade"></span>
+            <a href="#flasher-tab-sensor" class="red-ui-tab-label">Controller Info</a>
           </li>
         </ul>
       </div>
     </div>
   </div>
-  <!-- Tab contents -->
   <div id="node-config-flasher-tabs-content" style="min-height:100px;">
     <div id="flasher-tab-folder" style="display:block;">
       <div class="form-row">
-        <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder</label>
-        <input type="text" id="node-input-folder" placeholder="~/iot-systems/demo01">
+        <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder Config</label>
+        <input type="text" id="node-input-folder">
       </div>
       <div class="form-row">
         <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node</label>
@@ -41,7 +76,6 @@
         <select id="node-input-controllerType">
           <option value="Wemos D1 Mini">Wemos D1 Mini</option>
           <option value="m5stickc">M5StickC</option>
-          <!-- add more controller types here -->
         </select>
       </div>
       <div class="form-row">
@@ -61,69 +95,70 @@
 </script>
 
 <script type="text/javascript">
-  RED.nodes.registerType('flasher', {
-    category: 'network',
-    color: '#d65a31',
-    icon: 'fa-microchip',
-    inputs: 1,
-    outputs: 1,
-    defaults: {
-      name:            { value: "" },
-      controllerType:  { value: "Wemos D1 Mini" },
-      sensor:          { value: "dht" },
-      folder:          { value: "~/iot-systems/demo01" },
-      nodeName:        { value: "test01" },
-      port:            { value: "/dev/ttyUSB0" },
-      mqttChannel:     { value: "" }
-    },
-    label: function() {
-      return this.name || `flasher ${this.controllerType} ${this.sensor} ${this.nodeName}`;
-    },
-    oneditprepare: function() {
-      // Populate fields
-      $("#node-input-name").val(this.name);
-      $("#node-input-folder").val(this.folder);
-      $("#node-input-nodeName").val(this.nodeName);
-      $("#node-input-port").val(this.port);
-      $("#node-input-sensor").val(this.sensor);
-      $("#node-input-mqttChannel").val(this.mqttChannel);
-      $("#node-input-controllerType").val(this.controllerType);
+RED.nodes.registerType('flasher', {
+  category: 'network',
+  color: '#d65a31',
+  icon: 'fa-microchip',
+  inputs: 1,
+  outputs: 1,
+  defaults: {
+    name:            { value: "" },
+    controllerType:  { value: "Wemos D1 Mini" },
+    sensor:          { value: "dht" },
+    folder:          { type: "flasher-folder", required: true },
+    nodeName:        { value: "test01" },
+    port:            { value: "/dev/ttyUSB0" },
+    mqttChannel:     { value: "" }
+  },
+  label: function() {
+    var conf = RED.nodes.node(this.folder);
+    var path = conf && conf.path ? conf.path : "";
+    return this.name || `flasher ${this.controllerType} ${this.sensor} ${this.nodeName}`;
+  },
+  oneditprepare: function() {
+    // Populate Node fields
+    $("#node-input-name").val(this.name);
+    $("#node-input-nodeName").val(this.nodeName);
+    $("#node-input-port").val(this.port);
+    $("#node-input-sensor").val(this.sensor);
+    $("#node-input-mqttChannel").val(this.mqttChannel);
+    $("#node-input-controllerType").val(this.controllerType);
 
-      // Tab click logic
-      $("#node-config-flasher-tabs li").click((e) => {
-        var id = $(e.currentTarget).attr('id');
-        $("#node-config-flasher-tabs li").removeClass('active');
-        $(e.currentTarget).addClass('active');
-        var target = (id === 'red-ui-tab-flasher-folder') ? '#flasher-tab-folder' : '#flasher-tab-sensor';
-        $('#node-config-flasher-tabs-content > div').hide();
-        $(target).show();
-      });
-
-      // Update node properties and label on change
-      function updateNode() {
-        var n = this;
-        n.name           = $("#node-input-name").val();
-        n.folder         = $("#node-input-folder").val();
-        n.nodeName       = $("#node-input-nodeName").val();
-        n.port           = $("#node-input-port").val();
-        n.sensor         = $("#node-input-sensor").val();
-        n.mqttChannel    = $("#node-input-mqttChannel").val();
-        n.controllerType = $("#node-input-controllerType").val();
-        $(".node-input-label").text(RED._(n.name || `flasher ${n.controllerType} ${n.sensor} ${n.nodeName}`));
+    // Tab switching logic
+    $("#node-config-flasher-tabs li").on('click', function(e) {
+      var id = $(this).attr('id');
+      $("#node-config-flasher-tabs li").removeClass('active');
+      $(this).addClass('active');
+      $("#node-config-flasher-tabs-content > div").hide();
+      if(id === 'red-ui-tab-flasher-folder') {
+        $('#flasher-tab-folder').show();
+      } else {
+        $('#flasher-tab-sensor').show();
       }
+    });
 
-      // Bind change events
-      [
-        "#node-input-name",
-        "#node-input-folder",
-        "#node-input-nodeName",
-        "#node-input-port",
-        "#node-input-sensor",
-        "#node-input-mqttChannel",
-        "#node-input-controllerType"
-      ].forEach(selector => {
-        $(selector).on('change', updateNode.bind(this));
-      });
+    // Update preview label when fields change
+    function updateNode() {
+      var n = this;
+      n.name           = $("#node-input-name").val();
+      n.nodeName       = $("#node-input-nodeName").val();
+      n.port           = $("#node-input-port").val();
+      n.sensor         = $("#node-input-sensor").val();
+      n.mqttChannel    = $("#node-input-mqttChannel").val();
+      n.controllerType = $("#node-input-controllerType").val();
+      $(".node-input-label").text(RED._(n.name || `flasher ${n.controllerType} ${n.sensor} ${n.nodeName}`));
     }
-  });
+    [
+      "#node-input-name",
+      "#node-input-nodeName",
+      "#node-input-port",
+      "#node-input-sensor",
+      "#node-input-mqttChannel",
+      "#node-input-controllerType",
+      "#node-input-folder"
+    ].forEach(function(sel) {
+      $(sel).on('change', updateNode.bind(this));
+    }, this);
+  }
+});
 </script>

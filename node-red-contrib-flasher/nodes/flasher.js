@@ -4,14 +4,33 @@ const path = require("path");
 const fs = require("fs");
 
 module.exports = function(RED) {
+  // ---- Config node: flasher-folder ----
+  function FlasherFolder(n) {
+    RED.nodes.createNode(this, n);
+    this.name     = n.name;
+    this.path     = n.path || os.homedir() + "/iot-systems/demo";
+    this.nodeName = n.nodeName || "test01";
+    this.wifiSSID = n.wifiSSID || "";
+    this.wifiPassword = this.credentials && this.credentials.wifiPassword || "";
+  }
+  RED.nodes.registerType("flasher-folder", FlasherFolder, {
+    credentials: {
+      wifiPassword: { type: "password" }
+    }
+  });
+
+  // ---- Main node: flasher ----
   function FlasherNode(config) {
     RED.nodes.createNode(this, config);
     const node = this;
 
+    // Retrieve config-node instance
+    const folderConfig = RED.nodes.getNode(config.folder) || {};
+
     // Expand ~/ to absolute path
-    const baseFolder     = config.folder.replace(/^~\//, os.homedir() + "/");
-    const baseNode       = config.nodeName;
-    const port           = config.port;
+    const baseFolder     = (folderConfig.path || config.folder || "~/iot-systems/demo").replace(/^~\//, os.homedir() + "/");
+    const baseNode       = folderConfig.nodeName || config.nodeName;
+    const port           = folderConfig.port || config.port;
     const sensor         = config.sensor;
     const mqttChannel    = config.mqttChannel;
     const controllerType = config.controllerType;
