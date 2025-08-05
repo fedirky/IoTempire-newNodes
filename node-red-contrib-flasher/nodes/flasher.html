@@ -24,13 +24,13 @@
 RED.nodes.registerType("flasher-folder", {
   category: "config",
   defaults: {
-    name:         { value: "" },
-    path:         { value: "~/iot-systems/demo", required: false },
-    wifiSSID:     { value: "", required: false },
+    name:     { value: "" },
+    path:     { value: "~/iot-systems/demo", required: false },
+    wifiSSID: { value: "", required: false },
     wifiPassword: { value: "", required: false }
   },
   label: function () {
-    return this.name || this.path || this.nodeName || "folder";
+    return this.name || this.path || "folder";
   }
 });
 </script>

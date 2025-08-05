@@ -1,4 +1,4 @@
-const { exec } = require("child_process");
+const { exec, execSync } = require("child_process");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
@@ -11,13 +11,9 @@ module.exports = function(RED) {
     this.path     = n.path || os.homedir() + "/iot-systems/demo";
     this.nodeName = n.nodeName || "test01";
     this.wifiSSID = n.wifiSSID || "";
-    this.wifiPassword = this.credentials && this.credentials.wifiPassword || "";
+    this.wifiPassword = n.wifiPassword || "";
   }
-  RED.nodes.registerType("flasher-folder", FlasherFolder, {
-    credentials: {
-      wifiPassword: { type: "password" }
-    }
-  });
+  RED.nodes.registerType("flasher-folder", FlasherFolder);
 
   // ---- Main node: flasher ----
   function FlasherNode(config) {
@@ -27,7 +23,7 @@ module.exports = function(RED) {
     // Retrieve config-node instance
     const folderConfig = RED.nodes.getNode(config.folder) || {};
 
-    // Expand ~/ to absolute path
+    // Base parameters
     const baseFolder     = (folderConfig.path || config.folder || "~/iot-systems/demo").replace(/^~\//, os.homedir() + "/");
     const baseNode       = folderConfig.nodeName || config.nodeName;
     const port           = folderConfig.port || config.port;
@@ -39,7 +35,7 @@ module.exports = function(RED) {
 
     node.on("input", function(msg) {
       // Override via msg if provided
-      const folder            = msg.folder   || baseFolder;
+      const folder            = (msg.folder   || baseFolder).replace(/^~\//, os.homedir() + "/");
       const nodeName          = msg.nodeName || baseNode;
       const uploadPort        = msg.port     || port;
       const chosenSensor      = msg.sensor   || sensor;
@@ -54,10 +50,68 @@ module.exports = function(RED) {
         return;
       }
 
-      // Full path to node folder
+      // Paths
+      const tplRoot      = "$IOTEMPOWER_ROOT/lib/system_template";
+      const sysConf      = path.join(folder, 'system.conf');
       const targetFolder = path.join(folder, nodeName);
       const setupFile    = path.join(targetFolder, 'setup.cpp');
       const confFile     = path.join(targetFolder, 'node.conf');
+
+      // Ensure base folder exists
+      try {
+        fs.mkdirSync(folder, { recursive: true });
+      } catch (err) {
+        node.error(`Failed to create base folder: ${err.message}`);
+        node.status({ fill: "red", shape: "ring", text: "folder error" });
+        return;
+      }
+
+      // Initialize system template if missing
+      if (!fs.existsSync(sysConf)) {
+        const tmp = path.join(folder, 'init_tmp');
+        try {
+          fs.mkdirSync(tmp, { recursive: true });
+          execSync(`cp -R "${tplRoot}/node_template" "${tmp}/node_template"`, {shell:'/bin/bash'});
+          execSync(`cp "${tplRoot}/system.conf" "${tmp}/system.conf"`, {shell:'/bin/bash'});
+          fs.mkdirSync(targetFolder, { recursive: true });
+          fs.renameSync(path.join(tmp, 'node_template'), targetFolder);
+          fs.renameSync(path.join(tmp, 'system.conf'), sysConf);
+          fs.rmdirSync(tmp, { recursive: true });
+        } catch (err) {
+          node.error(`Template init error: ${err.message}`);
+          node.status({ fill: "red", shape: "ring", text: "init error" });
+          return;
+        }
+      } else if (!fs.existsSync(targetFolder)) {
+        // only copy node_template for missing node folder
+        try {
+          exec(`cp -R "${tplRoot}/node_template" "${targetFolder}"`, {shell:'/bin/bash'});
+        } catch (err) {
+          node.error(`Node folder copy error: ${err.message}`);
+          node.status({ fill: "red", shape: "ring", text: "copy error" });
+          return;
+        }
+      }
+
+      // Update WiFi credentials in system.conf
+      try {
+        let data = fs.readFileSync(sysConf, 'utf8')
+          .replace(/^IOTEMPOWER_AP_NAME=.*$/m, '')
+          .replace(/^IOTEMPOWER_AP_PASSWORD=.*$/m, '')
+          .trim();
+        const wifiSSID = msg.wifiSSID || folderConfig.wifiSSID || config.wifiSSID || '';
+        const wifiPass = msg.wifiPassword || folderConfig.wifiPassword || config.wifiPassword || '';
+        data += `
+IOTEMPOWER_AP_NAME="${wifiSSID}"
+IOTEMPOWER_AP_PASSWORD="${wifiPass}"
+`;
+        fs.writeFileSync(sysConf, data, 'utf8');
+        node.log('Updated WiFi credentials in system.conf');
+      } catch (err) {
+        node.error(`WiFi config error: ${err.message}`);
+        node.status({ fill: "red", shape: "ring", text: "wifi config error" });
+        return;
+      }
 
       // Clear or create new setup.cpp
       try {
