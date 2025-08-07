@@ -24,9 +24,9 @@ module.exports = function(RED) {
     const folderConfig = RED.nodes.getNode(config.folder) || {};
 
     // Base parameters
-    const baseFolder     = (folderConfig.path || config.folder || "~/iot-systems/demo").replace(/^~\//, os.homedir() + "/");
-    const baseNode       = folderConfig.nodeName || config.nodeName;
-    const port           = folderConfig.port || config.port;
+    const baseFolder     = (folderConfig.path || "~/iot-systems/demo").replace(/^~\//, os.homedir() + "/");
+    const baseNode       = config.nodeName;
+    const port           = config.port;
     const sensor         = config.sensor;
     const mqttChannel    = config.mqttChannel;
     const controllerType = config.controllerType;
@@ -85,7 +85,7 @@ module.exports = function(RED) {
       } else if (!fs.existsSync(targetFolder)) {
         // only copy node_template for missing node folder
         try {
-          exec(`cp -R "${tplRoot}/node_template" "${targetFolder}"`, {shell:'/bin/bash'});
+          execSync(`cp -R "${tplRoot}/node_template" "${targetFolder}"`, {shell:'/bin/bash'});
         } catch (err) {
           node.error(`Node folder copy error: ${err.message}`);
           node.status({ fill: "red", shape: "ring", text: "copy error" });
