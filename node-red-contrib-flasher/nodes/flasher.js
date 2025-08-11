@@ -23,32 +23,20 @@ module.exports = function(RED) {
     // Retrieve config-node instance
     const folderConfig = RED.nodes.getNode(config.folder) || {};
 
-    // Base parameters
+    // Base parameters from config
     const baseFolder     = (folderConfig.path || "~/iot-systems/demo").replace(/^~\//, os.homedir() + "/");
     const baseNode       = config.nodeName;
     const port           = config.port;
-    const sensor         = config.sensor;
-    const mqttChannel    = config.mqttChannel;
     const controllerType = config.controllerType;
 
     node.status({ fill: "blue", shape: "dot", text: "ready" });
 
     node.on("input", function(msg) {
-      // Override via msg if provided
-      const folder            = (msg.folder   || baseFolder).replace(/^~\//, os.homedir() + "/");
-      const nodeName          = msg.nodeName || baseNode;
-      const uploadPort        = msg.port     || port;
-      const chosenSensor      = msg.sensor   || sensor;
-      const chosenMqttChannel = msg.mqttChannel || mqttChannel;
-      const chosenController  = msg.controllerType || controllerType;
-
-      // Validate sensor selection
-      const validSensors = ["dht", "mfrc522", "hcsr04"];
-      if (!validSensors.includes(chosenSensor)) {
-        node.error(`Invalid sensor type: ${chosenSensor}`);
-        node.status({ fill: "red", shape: "ring", text: "invalid sensor" });
-        return;
-      }
+      // Override with msg values if provided
+      const folder           = (msg.folder   || baseFolder).replace(/^~\//, os.homedir() + "/");
+      const nodeName         = msg.nodeName || baseNode;
+      const uploadPort       = msg.port     || port;
+      const chosenController = msg.controllerType || controllerType;
 
       // Paths
       const tplRoot      = "$IOTEMPOWER_ROOT/lib/system_template";
@@ -83,7 +71,7 @@ module.exports = function(RED) {
           return;
         }
       } else if (!fs.existsSync(targetFolder)) {
-        // only copy node_template for missing node folder
+        // Copy node template if node folder is missing
         try {
           execSync(`cp -R "${tplRoot}/node_template" "${targetFolder}"`, {shell:'/bin/bash'});
         } catch (err) {
@@ -116,7 +104,7 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
       // Clear or create new setup.cpp
       try {
         fs.writeFileSync(setupFile, '');
-        node.log(`Cleared setup.cpp for sensor: ${chosenSensor}`);
+        node.log(`Cleared setup.cpp`);
       } catch (err) {
         node.error(`Failed to clear setup.cpp: ${err.message}`);
         node.status({ fill: "red", shape: "ring", text: "file error" });
@@ -133,29 +121,76 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
         return;
       }
 
-      // Generate code based on sensor
-      let setupCode = '';
-      switch (chosenSensor) {
-        case 'dht':
-          setupCode = `dht(${chosenMqttChannel}, D1);`;
-          break;
-        case 'mfrc522':
-          setupCode = `mfrc522(${chosenMqttChannel}, 32);`;
-          break;
-        case 'hcsr04':
-          setupCode = `hcsr04(${chosenMqttChannel}, D5, D6).with_precision(10);`;
-          break;
-      }
+      // ---- NEW LOGIC: Handle three sensors with MQTT + pins ----
+      const validSensors = ["dht", "mfrc522", "hcsr04"];
 
-      // Write new code to setup.cpp
-      try {
-        fs.appendFileSync(setupFile, `${setupCode}\n`);
-        node.log(`Added setup code for sensor: ${chosenSensor}`);
-      } catch (err) {
-        node.error(`Failed to write setup.cpp: ${err.message}`);
-        node.status({ fill: "red", shape: "ring", text: "write error" });
+      // Collect sensor configurations
+      const sensors = [1, 2, 3].map(i => ({
+        type: msg[`sensor${i}`] || config[`sensor${i}`] || "",
+        channel: msg[`mqttChannel${i}`] || config[`mqttChannel${i}`] || "",
+        pins: (msg[`sensor${i}Pins`] || config[`sensor${i}Pins`] || "")
+                .split(/\s*,\s*/).filter(Boolean) // split by comma & trim
+      }));
+      // ---- VALIDATE AFTER sensors IS INITIALIZED ----
+      const REQUIRED_PINS = { dht: 1, hcsr04: 2, mfrc522: 0 };
+
+      let validationErrors = [];
+
+      // Validate each configured sensor
+      sensors.forEach((s, idx) => {
+        if (!s.type) return; // empty slot is fine
+        if (!validSensors.includes(s.type)) {
+          validationErrors.push(`Sensor ${idx+1}: unsupported type "${s.type}".`);
+          return;
+        }
+        // MQTT channel is required for any sensor
+        if (!s.channel || !String(s.channel).trim()) {
+          validationErrors.push(`Sensor ${idx+1} (${s.type}) requires an MQTT channel.`);
+        }
+        // Enforce required pin count for sensors that need manual pins
+        const need = REQUIRED_PINS[s.type] ?? 0;
+        if (need > 0 && s.pins.length < need) {
+          validationErrors.push(`Sensor ${idx+1} (${s.type}) requires ${need} pin(s), got ${s.pins.length}.`);
+        }
+      });
+
+      // Stop if validation failed
+      if (validationErrors.length) {
+        const errMsg = `Validation failed:\n- ` + validationErrors.join("\n- ");
+        node.status({ fill: "red", shape: "ring", text: "validation error" });
+        node.error(errMsg);
+        msg.payload = { success: false, error: errMsg };
+        node.send(msg);
         return;
       }
+
+      // Helper to build setup.cpp code for each sensor
+      function buildSetupCode(s) {
+        switch (s.type) {
+          case "dht":
+            // Expect 1 pin
+            return `dht(${s.channel}, ${s.pins[0]});`;
+          case "mfrc522":
+            // Fixed pin mapping (RFID reader)
+            return `mfrc522(${s.channel}, 32);`;
+          case "hcsr04":
+            // Expect 2 pins
+            return `hcsr04(${s.channel}, ${s.pins[0]}, ${s.pins[1]}).with_precision(10);`;
+          default:
+            return "";
+        }
+      }
+
+      // Validate sensors and append setup code
+      sensors.forEach(s => {
+        if (s.type && validSensors.includes(s.type)) {
+          const code = buildSetupCode(s);
+          if (code) {
+            fs.appendFileSync(setupFile, code + "\n");
+            node.log(`Added setup code: ${code}`);
+          }
+        }
+      });
 
       // Deploy command
       const cmd = `cd ${targetFolder} && iot exec deploy serial --upload-port ${uploadPort}`;
