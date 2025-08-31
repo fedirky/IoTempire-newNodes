@@ -14,6 +14,14 @@
   "node-red": {
     "nodes": {
       "flasher": "nodes/flasher.js"
+    },
+    "resources": {
+      "node-red-contrib-flasher": [
+        "editor/flasher.css",
+        "editor/flasher.utils.js",
+        "editor/flasher.pins.js",
+        "editor/flasher.sensors.js"
+      ]
     }
   }
 }

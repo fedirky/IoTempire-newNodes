@@ -1,0 +1,79 @@
+/* Make dialog fields look like the main editor fields */
+
+/* --- shared form row style used by both dialogs --- */
+#flasher-sensor-dialog .form-row,
+#flasher-pins-dialog .form-row {
+  display: flex;               /* align label + field like the main form */
+  align-items: center;
+  gap: 8px;                    /* space between label and field */
+  margin-bottom: 8px;          /* vertical space between rows */
+}
+
+/* Label width similar to the main editor */
+#flasher-sensor-dialog .form-row > label,
+#flasher-pins-dialog .form-row > label {
+  width: 160px;                /* tweak if your editor uses a different width */
+  display: inline-block;
+  margin: 0;                   /* remove extra spacing */
+  white-space: nowrap;
+  color: #444;
+}
+
+/* Inputs/selects look & sizing */
+#flasher-sensor-dialog .form-row > input[type="text"],
+#flasher-sensor-dialog .form-row > select,
+#flasher-pins-dialog   .form-row > input[type="text"],
+#flasher-pins-dialog   .form-row > select {
+  flex: 1;
+  height: 28px;
+  line-height: 1.4;
+  padding: 2px 6px;
+  box-sizing: border-box;
+  border: 1px solid var(--red-ui-secondary-border, #c8c8c8);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+  color: #444;
+}
+
+/* Focus state similar to editor (no harsh black outline) */
+#flasher-sensor-dialog .form-row > input[type="text"]:focus,
+#flasher-sensor-dialog .form-row > select:focus,
+#flasher-pins-dialog   .form-row > input[type="text"]:focus,
+#flasher-pins-dialog   .form-row > select:focus {
+  outline: none;
+  border-color: #9ecaed;
+  box-shadow: 0 0 0 2px rgba(158,202,237,.2);
+}
+
+/* Dialog paddings */
+.ui-dialog .ui-dialog-content#flasher-sensor-dialog,
+.ui-dialog .ui-dialog-content#flasher-pins-dialog {
+  padding-top: 10px;
+  background: #fff;
+}
+
+/* Button bar spacing consistent with editor */
+.ui-dialog .ui-dialog-buttonpane {
+  padding: 0.4em 0.6em 0.6em;
+}
+
+/* Optional: make sensor & pins buttons look like inputs */
+#flasher-tab-sensor .red-ui-button {
+  height: 28px;
+  line-height: 24px;
+  padding: 2px 8px;
+  width: 100%;
+  text-align: left;
+  color: #444;
+  background: #fff;
+  border: 1px solid var(--red-ui-secondary-border, #c8c8c8);
+  box-shadow: none;
+  opacity: 1;
+}
+#flasher-tab-sensor .red-ui-button:hover,
+#flasher-tab-sensor .red-ui-button:focus {
+  border-color: #9ecaed;
+  box-shadow: 0 0 0 2px rgba(158,202,237,.2);
+  outline: none;
+}

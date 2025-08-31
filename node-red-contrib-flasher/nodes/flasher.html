@@ -1,86 +1,10 @@
 <!-- flasher.html -->
 
-<style>
-/* Make dialog fields look like the main editor fields */
-
-/* --- shared form row style used by both dialogs --- */
-#flasher-sensor-dialog .form-row,
-#flasher-pins-dialog .form-row {
-  display: flex;               /* align label + field like the main form */
-  align-items: center;
-  gap: 8px;                    /* space between label and field */
-  margin-bottom: 8px;          /* vertical space between rows */
-}
-
-/* Label width similar to the main editor */
-#flasher-sensor-dialog .form-row > label,
-#flasher-pins-dialog .form-row > label {
-  width: 160px;                /* tweak if your editor uses a different width */
-  display: inline-block;
-  margin: 0;                   /* remove extra spacing */
-  white-space: nowrap;
-  color: #444;
-}
-
-/* Inputs/selects look & sizing */
-#flasher-sensor-dialog .form-row > input[type="text"],
-#flasher-sensor-dialog .form-row > select,
-#flasher-pins-dialog   .form-row > input[type="text"],
-#flasher-pins-dialog   .form-row > select {
-  flex: 1;                     
-  height: 28px;                
-  line-height: 1.4;
-  padding: 2px 6px;
-  box-sizing: border-box;
-  border: 1px solid var(--red-ui-secondary-border, #c8c8c8);
-  border-radius: 4px;
-  background: #fff;
-  font-size: 13px;
-  color: #444;
-}
-
-/* Focus state similar to editor (no harsh black outline) */
-#flasher-sensor-dialog .form-row > input[type="text"]:focus,
-#flasher-sensor-dialog .form-row > select:focus,
-#flasher-pins-dialog   .form-row > input[type="text"]:focus,
-#flasher-pins-dialog   .form-row > select:focus {
-  outline: none;
-  border-color: #9ecaed;
-  box-shadow: 0 0 0 2px rgba(158,202,237,.2);
-}
-
-/* Dialog paddings */
-.ui-dialog .ui-dialog-content#flasher-sensor-dialog,
-.ui-dialog .ui-dialog-content#flasher-pins-dialog {
-  padding-top: 10px;
-  background: #fff;
-}
-
-/* Button bar spacing consistent with editor */
-.ui-dialog .ui-dialog-buttonpane {
-  padding: 0.4em 0.6em 0.6em;
-}
-
-/* Optional: make sensor & pins buttons look like inputs */
-#flasher-tab-sensor .red-ui-button {
-  height: 28px;
-  line-height: 24px;
-  padding: 2px 8px;
-  width: 100%;
-  text-align: left;
-  color: #444;
-  background: #fff;
-  border: 1px solid var(--red-ui-secondary-border, #c8c8c8);
-  box-shadow: none;
-  opacity: 1;
-}
-#flasher-tab-sensor .red-ui-button:hover,
-#flasher-tab-sensor .red-ui-button:focus {
-  border-color: #9ecaed;
-  box-shadow: 0 0 0 2px rgba(158,202,237,.2);
-  outline: none;
-}
-</style>
+<!-- External resources (added via package.json -> node-red.resources) -->
+<link rel="stylesheet" href="resources/node-red-contrib-flasher/editor/flasher.css">
+<script src="resources/node-red-contrib-flasher/editor/flasher.utils.js"></script>
+<script src="resources/node-red-contrib-flasher/editor/flasher.pins.js"></script>
+<script src="resources/node-red-contrib-flasher/editor/flasher.sensors.js"></script>
 
 <!-- Config node template for folder settings -->
 <script type="text/html" data-template-name="flasher-folder">
@@ -270,291 +194,31 @@ RED.nodes.registerType('flasher', {
     return this.name || `flasher ${this.controllerType} ${sensors} ${this.nodeName}`;
   },
   oneditprepare: function() {
-    var currentIdx = null;
+    // Glue only: delegate to extracted helpers
+    const state = window.flasherInitState(this);
 
-    /* ---- Controller pins map (adjust to your boards) ---- */
-    // NOTE: Customize these arrays to reflect your actual controller pinouts.
-    var CONTROLLER_PINS = {
-      "Wemos D1 Mini": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","A0"],
-      "m5stickc":      ["G0","G26","G32","G33","G34","G36"]  // example subset
-    };
-
-    /* ---- Sensor pin requirements ---- */
-    // Labels here become field labels in the pins dialog
-    var SENSOR_PIN_SPEC = {
-      "":        [],
-      "dht":     ["Pin1"],
-      "hcsr04":  ["Pin1","Pin2"],
-      "mfrc522": []   // requires hardware pins; no manual selection
-    };
-
-    // Update text of the sensor settings button
-    function updateSensorButton(idx) {
-      var s = $("#node-input-sensor" + idx).val() || "";
-      var t = $("#node-input-mqttChannel" + idx).val() || "";
-      var label = "Sensor " + idx + " Settings…";
-      if (s) label = s + (t ? " → " + t : "");
-      $("#btn-s" + idx).text(label);
-    }
-
-    // Update text of the pins button
-    function updatePinsButton(idx) {
-      var s = $("#node-input-sensor" + idx).val() || "";
-      var pinsStr = $("#node-input-sensor" + idx + "Pins").val() || "";
-      var spec = SENSOR_PIN_SPEC[s] || [];
-      var label = "Pins…";
-      if (!s || spec.length === 0) {
-        label = "Pins… (n/a)";
-      } else if (pinsStr) {
-        label = "Pins: " + pinsStr;
-      }
-      $("#btn-s" + idx + "-p").text(label);
-      $("#btn-s" + idx + "-p").prop("disabled", (!s || spec.length === 0));
-    }
-
-    // Build pins dialog content based on sensor + controller
-    function buildPinsDialog(idx){
-      var controller = $("#node-input-controllerType").val();
-      var options = CONTROLLER_PINS[controller] || [];
-      var sensorCode = $("#node-input-sensor"+idx).val() || "";
-      var spec = SENSOR_PIN_SPEC[sensorCode] || [];
-      var existing = ($("#node-input-sensor"+idx+"Pins").val() || "").split(",").map(s=>s.trim()).filter(Boolean);
-
-      // Collect pins already used by other sensors
-      var usedPins = [];
-      [1,2,3].forEach(function(i){
-        if (i !== idx) {
-          var pins = ($("#node-input-sensor"+i+"Pins").val() || "")
-            .split(",").map(s=>s.trim()).filter(Boolean);
-          usedPins = usedPins.concat(pins);
-        }
-      });
-
-      var $wrap = $("#pins-dynamic");
-      $wrap.empty();
-
-      if (spec.length === 0) {
-        $wrap.append(
-          '<div class="form-row"><label></label><div style="color:#666;">This sensor does not require manual pin selection on this controller.</div></div>'
-        );
-        return;
-      }
-
-      // Create selects
-      spec.forEach(function(role, i){
-        var selId = "dlg-pin-"+i;
-        var html = '<div class="form-row">' +
-                    '<label>'+ role +'</label>' +
-                    '<select id="'+ selId +'"></select>' +
-                  '</div>';
-        $wrap.append(html);
-
-        var $sel = $("#"+selId);
-        $sel.append('<option value="">— Select —</option>');
-
-        options.forEach(function(p){
-          var isUsedByOthers = usedPins.includes(p);
-          var opt = $('<option></option>').val(p).text(p);
-          if (isUsedByOthers) opt.prop('disabled', true); // block pins already taken by other sensors
-          $sel.append(opt);
-        });
-
-        if (existing[i]) { $sel.val(existing[i]); }
-      });
-
-      // Enforce uniqueness across selects *inside this dialog*
-      function refreshInDialogDisables(){
-        var selected = {};
-        // collect current selections
-        spec.forEach(function(_, i){
-          var v = $("#dlg-pin-"+i).val();
-          if (v) selected[v] = (selected[v] || 0) + 1;
-        });
-        // disable duplicates in other selects + keep own selected enabled
-        spec.forEach(function(_, i){
-          var $sel = $("#dlg-pin-"+i);
-          $sel.find('option').each(function(){
-            var val = $(this).val();
-            if (!val) return;
-            var takenByOthers = (selected[val] && $sel.val() !== val); // chosen in another select of this dialog
-            // already-disabled by other sensors stays disabled
-            var disabledByOthers = $(this).prop('disabled') && !takenByOthers;
-            $(this).prop('disabled', disabledByOthers || takenByOthers);
-          });
-        });
-      }
-
-      // Bind change handlers and run once
-      spec.forEach(function(_, i){
-        $("#dlg-pin-"+i).on('change', refreshInDialogDisables);
-      });
-      refreshInDialogDisables();
-    }
-
-    // Open pins dialog for a sensor
-    function openPinsDialog(idx){
-      buildPinsDialog(idx);
-      $("#flasher-pins-dialog").dialog({
-        modal: true,
-        width: 520,
-        title: "Sensor " + idx + " Pins",
-        buttons: [
-          {
-            text: "Save",
-            click: function () {
-              var controller = $("#node-input-controllerType").val();
-              var options = CONTROLLER_PINS[controller] || [];
-              var sensorCode = $("#node-input-sensor"+idx).val() || "";
-              var spec = SENSOR_PIN_SPEC[sensorCode] || [];
-              // Collect selected pins in order
-              var pins = [];
-              var valid = true;
-              for (var i=0;i<spec.length;i++){
-                var v = $("#dlg-pin-"+i).val();
-                if (!v) { valid = false; break; }
-                pins.push(v);
-              }
-              if (!valid) {
-                // Simple inline validation
-                $("#pins-dynamic").append('<div class="form-row"><label></label><div style="color:#b00;">Please select all required pins.</div></div>');
-                return;
-              }
-              // Save as comma-separated string
-              $("#node-input-sensor"+idx+"Pins").val(pins.join(", ")).change();
-              updatePinsButton(idx);
-              $(this).dialog("close");
-            }
-          },
-          {
-            text: "Cancel",
-            click: function(){ $(this).dialog("close"); }
-          }
-        ]
-      });
-    }
-
-    // Populate base fields
-    $("#node-input-name").val(this.name);
-    $("#node-input-nodeName").val(this.nodeName);
-    $("#node-input-port").val(this.port);
-    $("#node-input-controllerType").val(this.controllerType);
-
-    // Populate hidden sensor/channel/pins fields
-    $("#node-input-sensor1").val(this.sensor1 || "");
-    $("#node-input-mqttChannel1").val(this.mqttChannel1 || "");
-    $("#node-input-sensor1Pins").val(this.sensor1Pins || "");
-
-    $("#node-input-sensor2").val(this.sensor2 || "");
-    $("#node-input-mqttChannel2").val(this.mqttChannel2 || "");
-    $("#node-input-sensor2Pins").val(this.sensor2Pins || "");
-
-    $("#node-input-sensor3").val(this.sensor3 || "");
-    $("#node-input-mqttChannel3").val(this.mqttChannel3 || "");
-    $("#node-input-sensor3Pins").val(this.sensor3Pins || "");
-
-    // Sensor settings dialog
-    function openSensorDialog(idx) {
-      $("#dlg-sensor-type").val($("#node-input-sensor" + idx).val() || "");
-      $("#dlg-sensor-topic").val($("#node-input-mqttChannel" + idx).val() || "");
-
-      $("#flasher-sensor-dialog").dialog({
-        modal: true,
-        width: 520,
-        title: "Sensor " + idx + " Settings",
-        buttons: [
-          {
-            text: "Save",
-            click: function () {
-              $("#node-input-sensor" + idx).val($("#dlg-sensor-type").val()).change();
-              $("#node-input-mqttChannel" + idx).val($("#dlg-sensor-topic").val()).change();
-              updateSensorButton(idx);
-              updatePinsButton(idx);   // pins requirements may change with sensor type
-              updateNodeLabel();
-              $(this).dialog("close");
-            }
-          },
-          {
-            text: "Cancel",
-            click: function () { $(this).dialog("close"); }
-          }
-        ]
-      });
-    }
-
-    // Bind open buttons (sensor settings)
-    $("#btn-s1").on("click", function () { openSensorDialog(1); });
-    $("#btn-s2").on("click", function () { openSensorDialog(2); });
-    $("#btn-s3").on("click", function () { openSensorDialog(3); });
-
-    // Bind open buttons (pins settings)
-    $("#btn-s1-p").on("click", function () { openPinsDialog(1); });
-    $("#btn-s2-p").on("click", function () { openPinsDialog(2); });
-    $("#btn-s3-p").on("click", function () { openPinsDialog(3); });
+    window.flasherPopulateBaseFields(state);
 
     // Initial button labels
-    [1,2,3].forEach(function(i){ updateSensorButton(i); updatePinsButton(i); });
-
-    // When controller changes, pins list changes → rebuild pins selections next time
-    $("#node-input-controllerType").on("change", function(){
-      // Clear pins if previously selected (optional; comment out if you want to keep)
-      // [1,2,3].forEach(function(i){ $("#node-input-sensor"+i+"Pins").val(""); });
-      [1,2,3].forEach(updatePinsButton);
+    [1,2,3].forEach(function(i){
+      window.flasherUpdateSensorButton(state, i);
+      window.flasherUpdatePinsButton(state, i);
     });
 
-    // Tabs switching
-    $("#node-config-flasher-tabs li").on('click', function() {
-      var id = $(this).attr('id');
-      $("#node-config-flasher-tabs li").removeClass('active');
-      $(this).addClass('active');
-      $("#node-config-flasher-tabs-content > div").hide();
-      if (id === 'red-ui-tab-flasher-folder') {
-        $('#flasher-tab-folder').show();
-      } else {
-        $('#flasher-tab-sensor').show();
-      }
-    });
+    // Bind open buttons (sensor settings)
+    $("#btn-s1").on("click", function () { window.flasherOpenSensorDialog(state, 1); });
+    $("#btn-s2").on("click", function () { window.flasherOpenSensorDialog(state, 2); });
+    $("#btn-s3").on("click", function () { window.flasherOpenSensorDialog(state, 3); });
 
-    // Update node label preview
-    function updateNodeLabel() {
-      var n = {
-        name: $("#node-input-name").val(),
-        nodeName: $("#node-input-nodeName").val(),
-        controllerType: $("#node-input-controllerType").val()
-      };
-      var s = [
-        $("#node-input-sensor1").val(),
-        $("#node-input-sensor2").val(),
-        $("#node-input-sensor3").val()
-      ].filter(Boolean);
-      $(".node-input-label").text(
-        RED._(n.name || `flasher ${n.controllerType} ${s.length ? s.join('+') : 'no-sensor'} ${n.nodeName}`)
-      );
-    }
+    // Bind open buttons (pins settings)
+    $("#btn-s1-p").on("click", function () { window.flasherOpenPinsDialog(state, 1); });
+    $("#btn-s2-p").on("click", function () { window.flasherOpenPinsDialog(state, 2); });
+    $("#btn-s3-p").on("click", function () { window.flasherOpenPinsDialog(state, 3); });
 
-    // Keep label in sync with field changes
-    [
-      "#node-input-name",
-      "#node-input-nodeName",
-      "#node-input-controllerType",
-      "#node-input-port",
-      "#node-input-folder",
-
-      "#node-input-sensor1",
-      "#node-input-mqttChannel1",
-      "#node-input-sensor1Pins",
-
-      "#node-input-sensor2",
-      "#node-input-mqttChannel2",
-      "#node-input-sensor2Pins",
-
-      "#node-input-sensor3",
-      "#node-input-mqttChannel3",
-      "#node-input-sensor3Pins"
-    ].forEach(function(sel){
-      $(sel).on('change keyup', updateNodeLabel);
-    });
-
-    updateNodeLabel();
+    window.flasherBindControllerChange(state);
+    window.flasherSetupTabs(state);
+    window.flasherBindLabelSync(state);
+    window.flasherUpdateNodeLabel(state);
   }
 });
 </script>
