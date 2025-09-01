@@ -29,6 +29,56 @@ module.exports = function(RED) {
     const port           = config.port;
     const controllerType = config.controllerType;
 
+    // ---- Build filter ----
+    const q = (s, def) => JSON.stringify(s != null && s !== "" ? s : def);
+    const n = (v, def) => {
+      if (v == null || v === "") return Number(def);
+      if (typeof v === "string") v = v.trim().replace(",", ".");
+      const num = Number(v);
+      return isNaN(num) ? Number(def) : num;
+    };
+
+    function buildFilterSuffix(type, params = {}) {
+      switch ((type || "").trim()) {
+        case "average":
+          return `.filter_average(${n(params.buflen, 100)})`;
+        case "jmc_median":
+          return `.filter_jmc_median()`;
+        case "jmc_interval_median": {
+          // якщо задано reset_each_ms – використовуємо його, інакше update_ms
+          if (params.reset_each_ms) {
+            return `.filter_jmc_interval_median(${n(params.reset_each_ms, 500)})`;
+          }
+          return `.filter_jmc_interval_median(${n(params.update_ms, 500)})`;
+        }
+        case "minchange":
+          return `.filter_minchange(${n(params.minchange, 0.1)})`;
+        case "binarize":
+          return `.filter_binarize(${n(params.cutoff, 0.5)}, ${q(params.high, "on")}, ${q(params.low, "off")})`;
+        case "round":
+          return `.filter_round(${n(params.base, 1)})`;
+        case "limit_time":
+          return `.filter_limit_time(${n(params.interval, 500)})`;
+        case "detect_click": {
+          // Будуємо список тільки з заповнених аргументів
+          const args = [];
+          ["click_min_ms","click_max_ms","longclick_min_ms","longclick_max_ms"].forEach(k=>{
+            if (params[k] !== "" && params[k] != null) args.push(n(params[k]));
+          });
+          if (params.pressed_str !== "" && params.pressed_str != null)  args.push(q(params.pressed_str));
+          if (params.released_str !== "" && params.released_str != null) args.push(q(params.released_str));
+          return `.filter_detect_click(${args.join(", ")})`;
+        }
+        case "interval_map": {
+          // pairs — це сирий CSV (наприклад: "low",-0.5,, ,0.5,"high")
+          const raw = (params.pairs || "").trim();
+          return raw ? `.filter_interval_map(${raw})` : ``;
+        }
+        default:
+          return ``;
+      }
+    }
+
     node.status({ fill: "blue", shape: "dot", text: "ready" });
 
     node.on("input", function(msg) {
@@ -121,40 +171,44 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
         return;
       }
 
-      // ---- NEW LOGIC: Handle three sensors with MQTT + pins ----
+      // ---- NEW LOGIC: Handle three sensors with MQTT + pins + filter ----
       const validSensors = ["dht", "mfrc522", "hcsr04"];
 
       // Collect sensor configurations
       const sensors = [1, 2, 3].map(i => ({
-        type: msg[`sensor${i}`] || config[`sensor${i}`] || "",
-        channel: msg[`mqttChannel${i}`] || config[`mqttChannel${i}`] || "",
-        pins: (msg[`sensor${i}Pins`] || config[`sensor${i}Pins`] || "")
-                .split(/\s*,\s*/).filter(Boolean) // split by comma & trim
+        type:   msg[`sensor${i}`]        || config[`sensor${i}`]        || "",
+        channel:msg[`mqttChannel${i}`]   || config[`mqttChannel${i}`]   || "",
+        pins:  (msg[`sensor${i}Pins`]    || config[`sensor${i}Pins`]    || "")
+                .split(/\s*,\s*/).filter(Boolean),
+        // === NEW: filter selection + params (JSON)
+        filterType:  msg[`filter${i}Type`]  || config[`filter${i}Type`]  || "",
+        filterParams:(() => {
+          const raw = msg[`filter${i}Params`] || config[`filter${i}Params`] || "{}";
+          try { return typeof raw === "string" ? JSON.parse(raw) : (raw || {}); }
+          catch { return {}; }
+        })()
       }));
+
       // ---- VALIDATE AFTER sensors IS INITIALIZED ----
       const REQUIRED_PINS = { dht: 1, hcsr04: 2, mfrc522: 0 };
 
       let validationErrors = [];
 
-      // Validate each configured sensor
       sensors.forEach((s, idx) => {
-        if (!s.type) return; // empty slot is fine
+        if (!s.type) return;
         if (!validSensors.includes(s.type)) {
           validationErrors.push(`Sensor ${idx+1}: unsupported type "${s.type}".`);
           return;
         }
-        // MQTT channel is required for any sensor
         if (!s.channel || !String(s.channel).trim()) {
           validationErrors.push(`Sensor ${idx+1} (${s.type}) requires an MQTT channel.`);
         }
-        // Enforce required pin count for sensors that need manual pins
         const need = REQUIRED_PINS[s.type] ?? 0;
         if (need > 0 && s.pins.length < need) {
           validationErrors.push(`Sensor ${idx+1} (${s.type}) requires ${need} pin(s), got ${s.pins.length}.`);
         }
       });
 
-      // Stop if validation failed
       if (validationErrors.length) {
         const errMsg = `Validation failed:\n- ` + validationErrors.join("\n- ");
         node.status({ fill: "red", shape: "ring", text: "validation error" });
@@ -164,32 +218,36 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
         return;
       }
 
-      // Helper to build setup.cpp code for each sensor
-      function buildSetupCode(s) {
+      // Helper to build base device call (WITHOUT ';')
+      function buildDeviceCall(s) {
         switch (s.type) {
           case "dht":
             // Expect 1 pin
-            return `dht(${s.channel}, ${s.pins[0]});`;
+            return `dht(${s.channel}, ${s.pins[0]})`;
           case "mfrc522":
             // Fixed pin mapping (RFID reader)
-            return `mfrc522(${s.channel}, 32);`;
+            return `mfrc522(${s.channel}, 32)`;
           case "hcsr04":
             // Expect 2 pins
-            return `hcsr04(${s.channel}, ${s.pins[0]}, ${s.pins[1]}).with_precision(10);`;
+            return `hcsr04(${s.channel}, ${s.pins[0]}, ${s.pins[1]}).with_precision(10)`;
           default:
             return "";
         }
       }
 
-      // Validate sensors and append setup code
-      sensors.forEach(s => {
-        if (s.type && validSensors.includes(s.type)) {
-          const code = buildSetupCode(s);
-          if (code) {
-            fs.appendFileSync(setupFile, code + "\n");
-            node.log(`Added setup code: ${code}`);
-          }
-        }
+      // Append lines to setup.cpp (device + optional filter chain)
+      sensors.forEach((s, idx) => {
+        if (!s.type || !validSensors.includes(s.type)) return;
+
+        const baseCall = buildDeviceCall(s);
+        if (!baseCall) return;
+
+        // === NEW: build one filter suffix for the sensor (if chosen)
+        const suffix = buildFilterSuffix(s.filterType, s.filterParams);
+        const line = baseCall + (suffix || "") + ";";
+
+        fs.appendFileSync(setupFile, line + "\n");
+        node.log(`Added setup code [S${idx+1}]: ${line}`);
       });
 
       // Deploy command

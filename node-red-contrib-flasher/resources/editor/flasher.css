@@ -1,29 +1,37 @@
-/* Make dialog fields look like the main editor fields */
-
-/* --- shared form row style used by both dialogs --- */
+/* --- shared form row style for all dialogs --- */
 #flasher-sensor-dialog .form-row,
-#flasher-pins-dialog .form-row {
-  display: flex;               /* align label + field like the main form */
+#flasher-pins-dialog   .form-row,
+#flasher-filter-dialog .form-row {
+  display: flex;
   align-items: center;
-  gap: 8px;                    /* space between label and field */
-  margin-bottom: 8px;          /* vertical space between rows */
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 /* Label width similar to the main editor */
 #flasher-sensor-dialog .form-row > label,
-#flasher-pins-dialog .form-row > label {
-  width: 160px;                /* tweak if your editor uses a different width */
+#flasher-pins-dialog   .form-row > label,
+#flasher-filter-dialog .form-row > label {
+  width: 160px;
   display: inline-block;
-  margin: 0;                   /* remove extra spacing */
+  margin: 0;
   white-space: nowrap;
   color: #444;
 }
 
-/* Inputs/selects look & sizing */
+/* Inputs/selects/textarea look & sizing */
 #flasher-sensor-dialog .form-row > input[type="text"],
+#flasher-sensor-dialog .form-row > input[type="number"],
 #flasher-sensor-dialog .form-row > select,
+#flasher-sensor-dialog .form-row > textarea,
 #flasher-pins-dialog   .form-row > input[type="text"],
-#flasher-pins-dialog   .form-row > select {
+#flasher-pins-dialog   .form-row > input[type="number"],
+#flasher-pins-dialog   .form-row > select,
+#flasher-pins-dialog   .form-row > textarea,
+#flasher-filter-dialog .form-row > input[type="text"],
+#flasher-filter-dialog .form-row > input[type="number"],
+#flasher-filter-dialog .form-row > select,
+#flasher-filter-dialog .form-row > textarea {
   flex: 1;
   height: 28px;
   line-height: 1.4;
@@ -36,11 +44,24 @@
   color: #444;
 }
 
-/* Focus state similar to editor (no harsh black outline) */
-#flasher-sensor-dialog .form-row > input[type="text"]:focus,
+/* Textarea height a bit larger */
+#flasher-sensor-dialog .form-row > textarea,
+#flasher-pins-dialog   .form-row > textarea,
+#flasher-filter-dialog .form-row > textarea {
+  height: 72px;
+  resize: vertical;
+}
+
+/* Focus state */
+#flasher-sensor-dialog .form-row > input:focus,
 #flasher-sensor-dialog .form-row > select:focus,
-#flasher-pins-dialog   .form-row > input[type="text"]:focus,
-#flasher-pins-dialog   .form-row > select:focus {
+#flasher-sensor-dialog .form-row > textarea:focus,
+#flasher-pins-dialog   .form-row > input:focus,
+#flasher-pins-dialog   .form-row > select:focus,
+#flasher-pins-dialog   .form-row > textarea:focus,
+#flasher-filter-dialog .form-row > input:focus,
+#flasher-filter-dialog .form-row > select:focus,
+#flasher-filter-dialog .form-row > textarea:focus {
   outline: none;
   border-color: #9ecaed;
   box-shadow: 0 0 0 2px rgba(158,202,237,.2);
@@ -48,17 +69,18 @@
 
 /* Dialog paddings */
 .ui-dialog .ui-dialog-content#flasher-sensor-dialog,
-.ui-dialog .ui-dialog-content#flasher-pins-dialog {
+.ui-dialog .ui-dialog-content#flasher-pins-dialog,
+.ui-dialog .ui-dialog-content#flasher-filter-dialog {
   padding-top: 10px;
   background: #fff;
 }
 
-/* Button bar spacing consistent with editor */
+/* Button bar spacing */
 .ui-dialog .ui-dialog-buttonpane {
   padding: 0.4em 0.6em 0.6em;
 }
 
-/* Optional: make sensor & pins buttons look like inputs */
+/* Buttons in the main tab look like inputs */
 #flasher-tab-sensor .red-ui-button {
   height: 28px;
   line-height: 24px;

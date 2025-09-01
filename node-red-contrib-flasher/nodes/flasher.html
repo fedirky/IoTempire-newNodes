@@ -5,6 +5,7 @@
 <script src="resources/node-red-contrib-flasher/editor/flasher.utils.js"></script>
 <script src="resources/node-red-contrib-flasher/editor/flasher.pins.js"></script>
 <script src="resources/node-red-contrib-flasher/editor/flasher.sensors.js"></script>
+<script src="resources/node-red-contrib-flasher/editor/flasher.filters.js"></script>
 
 <!-- Config node template for folder settings -->
 <script type="text/html" data-template-name="flasher-folder">
@@ -89,7 +90,6 @@ RED.nodes.registerType("flasher-folder", {
         <select id="node-input-controllerType">
           <option value="Wemos D1 Mini">Wemos D1 Mini</option>
           <option value="m5stickc">M5StickC</option>
-          <!-- Add more controllers here if needed -->
         </select>
       </div>
 
@@ -101,6 +101,25 @@ RED.nodes.registerType("flasher-folder", {
           <button id="btn-s1-p"  class="red-ui-button" style="width:180px;">Pins…</button>
         </div>
       </div>
+      <!-- Sensor 1 FILTER (label without "Sensor 1") -->
+      <div class="form-row">
+        <label><i class="fa fa-filter"></i> Filter</label>
+        <div style="display:flex; gap:8px; width:100%;">
+          <select id="node-input-filter1Type" style="flex:1;">
+            <option value="">— None —</option>
+            <option value="average">Average</option>
+            <option value="jmc_median">JMC Running Median</option>
+            <option value="jmc_interval_median">JMC Interval Median</option>
+            <option value="minchange">Min Change</option>
+            <option value="binarize">Binarize</option>
+            <option value="round">Round</option>
+            <option value="limit_time">Limit per Time</option>
+            <option value="detect_click">Click Detector</option>
+            <option value="interval_map">Interval Map</option>
+          </select>
+          <button id="btn-f1-opts" class="red-ui-button" style="width:180px;">Settings…</button>
+        </div>
+      </div>
 
       <!-- Sensor 2 -->
       <div class="form-row">
@@ -108,6 +127,25 @@ RED.nodes.registerType("flasher-folder", {
         <div style="display:flex; gap:8px; width:100%;">
           <button id="btn-s2"    class="red-ui-button" style="flex:1;">Sensor 2 Settings…</button>
           <button id="btn-s2-p"  class="red-ui-button" style="width:180px;">Pins…</button>
+        </div>
+      </div>
+      <!-- Sensor 2 FILTER (label without "Sensor 2") -->
+      <div class="form-row">
+        <label><i class="fa fa-filter"></i> Filter</label>
+        <div style="display:flex; gap:8px; width:100%;">
+          <select id="node-input-filter2Type" style="flex:1;">
+            <option value="">— None —</option>
+            <option value="average">Average</option>
+            <option value="jmc_median">JMC Running Median</option>
+            <option value="jmc_interval_median">JMC Interval Median</option>
+            <option value="minchange">Min Change</option>
+            <option value="binarize">Binarize</option>
+            <option value="round">Round</option>
+            <option value="limit_time">Limit per Time</option>
+            <option value="detect_click">Click Detector</option>
+            <option value="interval_map">Interval Map</option>
+          </select>
+          <button id="btn-f2-opts" class="red-ui-button" style="width:180px;">Settings…</button>
         </div>
       </div>
 
@@ -119,6 +157,25 @@ RED.nodes.registerType("flasher-folder", {
           <button id="btn-s3-p"  class="red-ui-button" style="width:180px;">Pins…</button>
         </div>
       </div>
+      <!-- Sensor 3 FILTER (label without "Sensor 3") -->
+      <div class="form-row">
+        <label><i class="fa fa-filter"></i> Filter</label>
+        <div style="display:flex; gap:8px; width:100%;">
+          <select id="node-input-filter3Type" style="flex:1;">
+            <option value="">— None —</option>
+            <option value="average">Average</option>
+            <option value="jmc_median">JMC Running Median</option>
+            <option value="jmc_interval_median">JMC Interval Median</option>
+            <option value="minchange">Min Change</option>
+            <option value="binarize">Binarize</option>
+            <option value="round">Round</option>
+            <option value="limit_time">Limit per Time</option>
+            <option value="detect_click">Click Detector</option>
+            <option value="interval_map">Interval Map</option>
+          </select>
+          <button id="btn-f3-opts" class="red-ui-button" style="width:180px;">Settings…</button>
+        </div>
+      </div>
 
       <!-- Hidden fields actually saved by Node-RED -->
       <input type="text" id="node-input-sensor1" style="display:none">
@@ -127,10 +184,14 @@ RED.nodes.registerType("flasher-folder", {
       <input type="text" id="node-input-mqttChannel1" style="display:none">
       <input type="text" id="node-input-mqttChannel2" style="display:none">
       <input type="text" id="node-input-mqttChannel3" style="display:none">
-      <!-- Pins stored as comma-separated strings, e.g. "D5,D6" -->
       <input type="text" id="node-input-sensor1Pins" style="display:none">
       <input type="text" id="node-input-sensor2Pins" style="display:none">
       <input type="text" id="node-input-sensor3Pins" style="display:none">
+
+      <!-- Hidden fields for filter params (JSON) -->
+      <input type="text" id="node-input-filter1Params" style="display:none">
+      <input type="text" id="node-input-filter2Params" style="display:none">
+      <input type="text" id="node-input-filter3Params" style="display:none">
     </div>
   </div>
 
@@ -151,10 +212,14 @@ RED.nodes.registerType("flasher-folder", {
     </div>
   </div>
 
-  <!-- Reusable dialog for Pins Settings (content is built dynamically) -->
+  <!-- Reusable dialog for Pins Settings -->
   <div id="flasher-pins-dialog" style="display:none;">
-    <!-- Dynamic rows inserted here via JS depending on sensor + controller -->
     <div id="pins-dynamic"></div>
+  </div>
+
+  <!-- Reusable dialog for Filter Settings -->
+  <div id="flasher-filter-dialog" style="display:none;">
+    <div id="filter-dynamic"></div>
   </div>
 </script>
 
@@ -169,20 +234,24 @@ RED.nodes.registerType('flasher', {
     name:            { value: "" },
     controllerType:  { value: "Wemos D1 Mini" },
 
-    // Three sensors stored separately
     sensor1:         { value: "" },
     sensor2:         { value: "" },
     sensor3:         { value: "" },
 
-    // Separate MQTT channels
     mqttChannel1:    { value: "" },
     mqttChannel2:    { value: "" },
     mqttChannel3:    { value: "" },
 
-    // Pins per sensor (comma-separated)
     sensor1Pins:     { value: "" },
     sensor2Pins:     { value: "" },
     sensor3Pins:     { value: "" },
+
+    filter1Type:     { value: "" },
+    filter2Type:     { value: "" },
+    filter3Type:     { value: "" },
+    filter1Params:   { value: "" },
+    filter2Params:   { value: "" },
+    filter3Params:   { value: "" },
 
     folder:          { type: "flasher-folder", required: true },
     nodeName:        { value: "test01" },
@@ -194,23 +263,24 @@ RED.nodes.registerType('flasher', {
     return this.name || `flasher ${this.controllerType} ${sensors} ${this.nodeName}`;
   },
   oneditprepare: function() {
-    // Glue only: delegate to extracted helpers
     const state = window.flasherInitState(this);
 
     window.flasherPopulateBaseFields(state);
 
-    // Initial button labels
     [1,2,3].forEach(function(i){
       window.flasherUpdateSensorButton(state, i);
       window.flasherUpdatePinsButton(state, i);
+
+      window.flasherInitFilterUI(state, i);
+      $("#btn-f"+i+"-opts").on("click", function () {
+        window.flasherOpenFilterDialog(state, i);
+      });
     });
 
-    // Bind open buttons (sensor settings)
     $("#btn-s1").on("click", function () { window.flasherOpenSensorDialog(state, 1); });
     $("#btn-s2").on("click", function () { window.flasherOpenSensorDialog(state, 2); });
     $("#btn-s3").on("click", function () { window.flasherOpenSensorDialog(state, 3); });
 
-    // Bind open buttons (pins settings)
     $("#btn-s1-p").on("click", function () { window.flasherOpenPinsDialog(state, 1); });
     $("#btn-s2-p").on("click", function () { window.flasherOpenPinsDialog(state, 2); });
     $("#btn-s3-p").on("click", function () { window.flasherOpenPinsDialog(state, 3); });
@@ -219,6 +289,21 @@ RED.nodes.registerType('flasher', {
     window.flasherSetupTabs(state);
     window.flasherBindLabelSync(state);
     window.flasherUpdateNodeLabel(state);
+
+    ["1","2","3"].forEach(function(i){
+      const key = "filter"+i+"Params";
+      const v = (state.node && state.node[key]) || "{}";
+      $("#node-input-"+key).val(v);
+    });
+  },
+  oneditsave: function() {
+    try {
+      [1,2,3].forEach((i)=>{
+        const key = "filter"+i+"Params";
+        const val = this[key] || "{}";
+        $("#node-input-"+key).val(typeof val === "string" ? val : JSON.stringify(val));
+      });
+    } catch(e) {}
   }
 });
 </script>
