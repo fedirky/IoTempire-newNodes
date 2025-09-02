@@ -101,7 +101,6 @@ RED.nodes.registerType("flasher-folder", {
           <button id="btn-s1-p"  class="red-ui-button" style="width:180px;">Pins…</button>
         </div>
       </div>
-      <!-- Sensor 1 FILTER (label without "Sensor 1") -->
       <div class="form-row">
         <label><i class="fa fa-filter"></i> Filter</label>
         <div style="display:flex; gap:8px; width:100%;">
@@ -129,7 +128,6 @@ RED.nodes.registerType("flasher-folder", {
           <button id="btn-s2-p"  class="red-ui-button" style="width:180px;">Pins…</button>
         </div>
       </div>
-      <!-- Sensor 2 FILTER (label without "Sensor 2") -->
       <div class="form-row">
         <label><i class="fa fa-filter"></i> Filter</label>
         <div style="display:flex; gap:8px; width:100%;">
@@ -157,7 +155,6 @@ RED.nodes.registerType("flasher-folder", {
           <button id="btn-s3-p"  class="red-ui-button" style="width:180px;">Pins…</button>
         </div>
       </div>
-      <!-- Sensor 3 FILTER (label without "Sensor 3") -->
       <div class="form-row">
         <label><i class="fa fa-filter"></i> Filter</label>
         <div style="display:flex; gap:8px; width:100%;">
@@ -195,7 +192,7 @@ RED.nodes.registerType("flasher-folder", {
     </div>
   </div>
 
-  <!-- Reusable dialog for Sensor Settings -->
+  <!-- Sensor Settings dialog -->
   <div id="flasher-sensor-dialog" style="display:none;">
     <div class="form-row">
       <label for="dlg-sensor-type"><i class="fa fa-thermometer-half"></i> Sensor</label>
@@ -212,12 +209,12 @@ RED.nodes.registerType("flasher-folder", {
     </div>
   </div>
 
-  <!-- Reusable dialog for Pins Settings -->
+  <!-- Pins dialog -->
   <div id="flasher-pins-dialog" style="display:none;">
     <div id="pins-dynamic"></div>
   </div>
 
-  <!-- Reusable dialog for Filter Settings -->
+  <!-- Filter dialog -->
   <div id="flasher-filter-dialog" style="display:none;">
     <div id="filter-dynamic"></div>
   </div>

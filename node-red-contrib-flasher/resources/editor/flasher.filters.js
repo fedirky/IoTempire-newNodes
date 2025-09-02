@@ -1,6 +1,5 @@
 // resources/editor/flasher.filters.js
 (function(){
-  // Опис усіх доступних фільтрів
   const FILTERS = {
     "average": {
       label: "Average",
@@ -85,7 +84,6 @@
     }
   };
 
-  // --- helpers ---
   function getNode(state){
     if (state && typeof state === "object" && state.node) return state.node;
     return state || {};
@@ -101,9 +99,10 @@
     const node = getNode(state);
     const json = JSON.stringify(obj || {});
     node["filter"+idx+"Params"] = json;
-    // keep hidden input in sync
     const $hidden = $("#node-input-filter"+idx+"Params");
-    if ($hidden.length) $hidden.val(json);
+    if ($hidden.length) {
+      $hidden.val(json).change(); // важливо для збереження
+    }
   }
 
   function buildFieldRow(f, val){
@@ -129,7 +128,8 @@
       const id = "#ff-"+f.key;
       let v = $(id).val();
       if (f.type==="number") {
-        v = v==="" ? "" : Number(v);
+        const norm = (v==="" || v==null) ? "" : String(v).trim().replace(",", ".");
+        v = norm==="" ? "" : Number(norm);
       }
       obj[f.key] = v;
     });
@@ -164,8 +164,10 @@
           click: function(){
             if (type && FILTERS[type]){
               const params = gatherParams(FILTERS[type]);
+              $("#node-input-filter"+idx+"Params").val(JSON.stringify(params)).change(); // як у Pins
               writeParamsToNode(state, idx, params);
             } else {
+              $("#node-input-filter"+idx+"Params").val("{}").change();
               writeParamsToNode(state, idx, {});
             }
             $(this).dialog("close");
@@ -183,11 +185,17 @@
     const node = getNode(state);
     const $sel = $("#node-input-filter"+idx+"Type");
     if (!$sel.length) return;
-    $sel.val(node["filter"+idx+"Type"] || "");
+
+    // НЕ перезаписуємо значення, яке вже проставив Node-RED.
+    // Просто зчитаємо його для локального стану.
+    node["filter"+idx+"Type"] = $sel.val() || "";
+
+    // При зміні селекта оновлюємо локальний стан.
     $sel.on("change", function(){
-      node["filter"+idx+"Type"] = $(this).val();
+      node["filter"+idx+"Type"] = $(this).val() || "";
     });
   }
+
 
   // API
   window.flasherInitFilterUI = function(state, idx){
@@ -206,3 +214,4 @@
     return def.toCode(params||{});
   };
 })();
+
