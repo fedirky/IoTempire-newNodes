@@ -6,6 +6,7 @@
 <script src="resources/node-red-contrib-flasher/editor/flasher.pins.js"></script>
 <script src="resources/node-red-contrib-flasher/editor/flasher.sensors.js"></script>
 <script src="resources/node-red-contrib-flasher/editor/flasher.filters.js"></script>
+<script src="resources/node-red-contrib-flasher/editor/flasher.nodes.js"></script>
 
 <!-- Config node template for folder settings -->
 <script type="text/html" data-template-name="flasher-folder">
@@ -44,6 +45,41 @@ RED.nodes.registerType("flasher-folder", {
 });
 </script>
 
+<!-- NEW: Config node: flasher-node (вибір/створення підпапки node) -->
+<script type="text/html" data-template-name="flasher-node">
+<div class="form-row">
+  <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node</label>
+  <div style="width:70%; display:inline-flex;">
+    <select id="node-input-nodeName" style="flex-grow:1;">
+      <!-- опції підвантажуються з JS -->
+    </select>
+    <a id="flasher-node-rename" class="red-ui-button" style="margin-left:10px;" title="Rename node on disk">
+      <i class="fa fa-pencil"></i>
+    </a>
+    <a id="flasher-node-add" class="red-ui-button" style="margin-left:10px;" title="Create new node folder">
+      <i class="fa fa-plus"></i>
+    </a>
+  </div>
+</div>
+</script>
+
+<script type="text/javascript">
+RED.nodes.registerType("flasher-node", {
+  category: "config",
+  defaults: {
+    name:     { value: "" },
+    folder:   { type: "flasher-folder", required: true },
+    nodeName: { value: "test01", required: true }
+  },
+  label: function () {
+    return this.name || this.nodeName || "node";
+  },
+  oneditprepare: function () {
+    if (window.flasherNodeEditorInit) window.flasherNodeEditorInit();
+  }
+});
+</script>
+
 <!-- Main node template -->
 <script type="text/html" data-template-name="flasher">
   <div class="form-row">
@@ -73,10 +109,23 @@ RED.nodes.registerType("flasher-folder", {
         <label for="node-input-folder"><i class="fa fa-folder-open"></i> Folder Config</label>
         <input type="text" id="node-input-folder">
       </div>
+
+      <!-- ЗМІНЕНО: Node тепер select + кнопки, без config-node picker -->
       <div class="form-row">
         <label for="node-input-nodeName"><i class="fa fa-cube"></i> Node</label>
-        <input type="text" id="node-input-nodeName" placeholder="test01">
+        <div style="display:flex; gap:4px; width:100%;">
+          <select id="node-input-nodeName" style="flex:1;">
+            <!-- опції підвантажуються з JS -->
+          </select>
+          <button id="flasher-node-rename" class="red-ui-button" type="button" title="Rename node on disk">
+            <i class="fa fa-pencil"></i>
+          </button>
+          <button id="flasher-node-add" class="red-ui-button" type="button" title="Create new node folder">
+            <i class="fa fa-plus"></i>
+          </button>
+        </div>
       </div>
+
       <div class="form-row">
         <label for="node-input-port"><i class="fa fa-plug"></i> Serial Port</label>
         <input type="text" id="node-input-port" placeholder="/dev/ttyUSB0">
@@ -251,8 +300,8 @@ RED.nodes.registerType('flasher', {
     filter3Params:   { value: "" },
 
     folder:          { type: "flasher-folder", required: true },
-    nodeName:        { value: "test01" },
-    port:            { value: "/dev/ttyUSB0" }
+    nodeName:        { value: "test01", required: true },
+    port:            { value: "/dev/ttyUSB0", required: true }
   },
   label: function() {
     var s = [this.sensor1, this.sensor2, this.sensor3].filter(Boolean);
@@ -292,6 +341,9 @@ RED.nodes.registerType('flasher', {
       const v = (state.node && state.node[key]) || "{}";
       $("#node-input-"+key).val(v);
     });
+    if (window.flasherSetupNodeSelectorMain) {
+      window.flasherSetupNodeSelectorMain();
+    }
   },
   oneditsave: function() {
     try {

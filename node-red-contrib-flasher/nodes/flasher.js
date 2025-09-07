@@ -4,6 +4,59 @@ const path = require("path");
 const fs = require("fs");
 
 module.exports = function(RED) {
+  // --- HTTP Admin endpoints for editor UI (list/create node folders) ---
+  RED.httpAdmin.get("/flasher/list-nodes", function(req, res) {
+    try {
+      let folder = req.query.folder || "";
+      folder = folder.replace(/^~\//, os.homedir() + "/");
+      const dirs = fs.readdirSync(folder, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name);
+      res.json(dirs);
+    } catch (e) {
+      res.status(500).send(e.message || "Failed to list nodes");
+    }
+  });
+
+  // Створити підпапку
+  RED.httpAdmin.post("/flasher/create-node", function(req, res) {
+    try {
+      let folder = (req.body && req.body.folder) || "";
+      let nodeName = (req.body && req.body.nodeName) || "";
+      folder = folder.replace(/^~\//, os.homedir() + "/");
+      nodeName = String(nodeName).trim();
+      if (!folder) return res.status(400).send("Missing 'folder'");
+      if (!nodeName) return res.status(400).send("Missing 'nodeName'");
+      if (!/^[a-zA-Z0-9._-]{1,64}$/.test(nodeName)) {
+        return res.status(400).send("Invalid node name");
+      }
+      fs.mkdirSync(path.join(folder, nodeName), { recursive: true });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).send(e.message || "Failed to create node");
+    }
+  });
+
+  // Перейменувати підпапку
+  RED.httpAdmin.post("/flasher/rename-node", function(req, res) {
+    try {
+      let folder = (req.body && req.body.folder) || "";
+      let from   = (req.body && req.body.from)   || "";
+      let to     = (req.body && req.body.to)     || "";
+      folder = folder.replace(/^~\//, os.homedir() + "/");
+      from = String(from).trim();
+      to   = String(to).trim();
+      if (!folder || !from || !to) return res.status(400).send("Missing params");
+      if (!/^[a-zA-Z0-9._-]{1,64}$/.test(to)) {
+        return res.status(400).send("Invalid name");
+      }
+      fs.renameSync(path.join(folder, from), path.join(folder, to));
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).send(e.message || "Failed to rename node");
+    }
+  });
+
   // ---- Config node: flasher-folder ----
   function FlasherFolder(n) {
     RED.nodes.createNode(this, n);
@@ -270,3 +323,4 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
 
   RED.nodes.registerType("flasher", FlasherNode);
 };
+

@@ -99,3 +99,17 @@
   box-shadow: 0 0 0 2px rgba(158,202,237,.2);
   outline: none;
 }
+
+/* зробити рядок Node однаковим із Folder */
+.form-row > label[for="node-input-nodeName"] + div {
+  width: 70% !important;
+  display: inline-flex !important;
+  gap: 0 !important;
+}
+.form-row > label[for="node-input-nodeName"] + div > #node-input-nodeName {
+  flex-grow: 1;
+}
+.form-row > label[for="node-input-nodeName"] + div > #flasher-node-rename,
+.form-row > label[for="node-input-nodeName"] + div > #flasher-node-add {
+  margin-left: 10px;
+}
