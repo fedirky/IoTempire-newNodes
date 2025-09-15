@@ -7,7 +7,8 @@
   // ---- Global constants ----
   const FLASHER_CONTROLLER_PINS = {
     "Wemos D1 Mini": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","A0"],
-    "m5stickc":      ["G0","G26","G32","G33","G34","G36"]  // example subset
+    "m5stickc":      ["G26", "G25", "G0"],
+    "m5stick":       ["G26", "G25", "G0"]
   };
 
   /**
@@ -20,17 +21,17 @@
     "": {
       label: "— None —",
       pins: [],
-      controllers: ["Wemos D1 Mini","m5stickc"]
+      controllers: ["Wemos D1 Mini","m5stickc", "m5stick"]
     },
     "dht": {
       label: "Temperature/Humidity (DHT)",
       pins: ["Pin1"],
-      controllers: ["Wemos D1 Mini","m5stickc"]
+      controllers: ["Wemos D1 Mini","m5stickc", "m5stick"]
     },
     "hcsr04": {
       label: "Ultrasonic Distance (HCSR04)",
       pins: ["Pin1","Pin2"],
-      controllers: ["Wemos D1 Mini","m5stickc"]
+      controllers: ["Wemos D1 Mini","m5stickc", "m5stick"]
     },
     "mfrc522": {
       label: "Tag Reader (MFRC522)",
