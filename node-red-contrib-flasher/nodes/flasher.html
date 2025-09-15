@@ -245,12 +245,7 @@ RED.nodes.registerType("flasher-node", {
   <div id="flasher-sensor-dialog" style="display:none;">
     <div class="form-row">
       <label for="dlg-sensor-type"><i class="fa fa-thermometer-half"></i> Sensor</label>
-      <select id="dlg-sensor-type">
-        <option value="">— None —</option>
-        <option value="dht">Temperature/Humidity (DHT)</option>
-        <option value="mfrc522">Tag Reader (MFRC522)</option>
-        <option value="hcsr04">Ultrasonic Distance (HCSR04)</option>
-      </select>
+      <select id="dlg-sensor-type"></select>
     </div>
     <div class="form-row">
       <label for="dlg-sensor-topic"><i class="fa fa-share-alt"></i> MQTT Channel</label>
