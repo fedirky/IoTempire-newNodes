@@ -266,7 +266,29 @@ IOTEMPOWER_MQTT_HOST="${mqttHost}"
       }
 
       // ---- Sensors ----
-      const validSensors = ["dht", "mfrc522", "hcsr04"];
+      const validSensors = [
+        "bmp085",
+        "bmp180",
+        "bmp280",
+        "button",
+        "display",
+        "display44780",
+        "dht",
+        "gyro6050",
+        "gyro9250",
+        "hx711",
+        "output",
+        "mpr121",
+        "hcsr04",
+        "mfrc522",
+        "pwm",
+        "rgb_single",
+        "rgb_single_inverted",
+        "rgb_strip_grb",
+        "rgb_strip_brg",
+        "servo",
+        "servo_switch"
+      ];
       const sensors = [1, 2, 3].map(i => ({
         type:   msg[`sensor${i}`]        || config[`sensor${i}`]        || "",
         channel:msg[`mqttChannel${i}`]   || config[`mqttChannel${i}`]   || "",
@@ -280,7 +302,29 @@ IOTEMPOWER_MQTT_HOST="${mqttHost}"
         })()
       }));
 
-      const REQUIRED_PINS = { dht: 1, hcsr04: 2, mfrc522: 0 };
+      const REQUIRED_PINS = {
+        bmp085: 2,              // SDA, SCL
+        bmp180: 2,              // SDA, SCL
+        bmp280: 2,              // SDA, SCL
+        button: 1,              // Pin
+        display: 2,             // SDA, SCL
+        display44780: 2,        // SDA, SCL
+        dht: 1,                 // Pin1
+        gyro6050: 2,            // SDA, SCL
+        gyro9250: 2,            // SDA, SCL
+        hx711: 2,               // SCK, DOUT
+        output: 1,              // Pin
+        mpr121: 2,              // SDA, SCL
+        hcsr04: 2,              // Pin1, Pin2
+        mfrc522: 0,             // hardware-bound
+        pwm: 1,                 // Pin
+        rgb_single: 3,          // R, G, B
+        rgb_single_inverted: 3, // R, G, B
+        rgb_strip_grb: 1,       // DataPin
+        rgb_strip_brg: 1,       // DataPin
+        servo: 1,               // Pin
+        servo_switch: 1         // Pin
+      };
       let validationErrors = [];
       sensors.forEach((s, idx) => {
         if (!s.type) return;

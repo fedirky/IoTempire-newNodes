@@ -1,96 +1,156 @@
-# node-red-contrib-flasher & node-red-contrib-folder-init
+# node-red-contrib-flasher (IoTempower helper for Node-RED)
 
-This repository includes **two custom Node-RED nodes** designed to work with IoT Empower:
+This repository currently contains **one** custom Node-RED node:
 
-- `node-red-contrib-flasher`: flashes a selected node over serial using `iot exec deploy serial`
-- `node-red-contrib-folder-init`: initializes a node folder and sets up WiFi credentials
+* **`node-red-contrib-flasher`** — manages an IoTempower node folder (init + config), generates basic sensor setup code, and **flashes** the device over serial (USB) or **RFC2217** using `iot exec deploy serial`.
+
+> **Note:** The earlier `node-red-contrib-folder-init` node is not present in this repo. Its duties (folder init + Wi‑Fi/MQTT config) are handled by **flasher**.
+
+---
 
 ## Features
 
-### node-red-contrib-flasher
-* Flashes a specific node using `iot exec deploy serial --upload-port`
-* Configurable folder, node name, and serial port
-* Can be overridden dynamically via `msg.folder`, `msg.nodeName`, `msg.port`
+### Folder & system bootstrap
 
-### node-red-contrib-folder-init
-* Initializes a system folder structure and node template
-* Automatically copies default `system.conf` if missing
-* Configures WiFi SSID and password in `system.conf`
-* Can be overridden dynamically via `msg.folder`, `msg.nodeName`, `msg.wifiSSID`, `msg.wifiPassword`
+* **List / create / rename** node subfolders directly from the Node‑RED editor (HTTP admin endpoints used by the UI).
+* **Initializes** a node folder on first run:
 
-## Installation
+  * If `<folder>/system.conf` is missing, the node tries to copy **`resources/system.conf`** and **`resources/node_template`** into the target structure.
+  * If the node folder does not exist, it tries to copy **`resources/node_template`** there.
+  * Writes Wi‑Fi/MQTT into `system.conf`:
 
-To install **both extensions at once**, use:
+    * `IOTEMPOWER_AP_NAME` (Wi‑Fi SSID)
+    * `IOTEMPOWER_AP_PASSWORD`
+    * `IOTEMPOWER_MQTT_HOST` (default `192.168.14.1` if not provided)
+* Writes controller choice into `node.conf` as `board="..."`.
 
-```bash
-cd path/to/your/dev/folder
+> **Heads‑up:** The code expects `resources/node_template` and `resources/system.conf` to be present in the package. Ensure these files exist (or create your own equivalents) so initialization can succeed.
 
-# Clone the repository (or copy the subfolders manually)
-git clone https://github.com/fedirky/IoTempire-newNodes
-cd IoTempire-newNodes
+### Controller & sensors
 
-# Install dependencies and link each extension separately
-cd node-red-contrib-flasher
-npm install
-npm link
+* **Controller selection** (stored in `node.conf`):
 
-cd ../node-red-contrib-folder-init
-npm install
-npm link
+  * `Wemos D1 Mini`
+  * `m5stickc_plus`
+  * `m5stickc_plus2`
+* **Sensors (up to three)** with optional **filters**. On deploy, the node writes lines into `setup.cpp` for each configured sensor.
+* **Currently supported in backend validation**:
 
-# Go to your local Node-RED user directory
-cd ~/.node-red
+  * `dht` — requires **1** pin → generates `dht(channel, pin)`
+  * `hcsr04` — requires **2** pins → `hcsr04(channel, trig, echo).with_precision(10)`
+  * `mfrc522` — **0** pins (SPI on default SS 32 inside code) → `mfrc522(channel, 32)`
 
-# Link both extensions into Node-RED
-npm link node-red-contrib-flasher node-red-contrib-folder-init
-```
+Other sensor types appear in the editor UI but are not yet accepted by the backend validator.
 
-Then restart Node-RED:
+### Filters
 
-```bash
-iot exec node-red-stop
-iot exec node-red
-```
+Each sensor may append a filter suffix in `setup.cpp`, for example:
 
-## Node Configuration
+* `average(buflen)` → `.filter_average(100)`
+* `jmc_median()` → `.filter_jmc_median()`
+* `jmc_interval_median(update_ms | reset_each_ms)`
+* `minchange(minchange)`
+* `binarize(cutoff, high, low)`
+* `round(base)`
+* `limit_time(interval)`
+* `detect_click(...)`
+* `interval_map(...)`
 
-### Flasher Node (`flasher`)
-- **Folder**: Base path to the node (e.g. `~/iot-systems/demo01`)
-- **Node Name**: The specific node folder (e.g. `test01`)
-- **Port**: Serial port used to flash (e.g. `/dev/ttyUSB0`)
+### Flashing / deploy
 
-Runtime override with:
+* **USB**: `iot exec deploy serial --upload-port "/dev/ttyUSB0"`
+* **RFC2217 (network serial)**: `iot exec deploy serial rfc2217://<host>:<port>`
+* The method is chosen **automatically** based on the `port` value:
+
+  * If `port` starts with `rfc2217://` → **NET** (RFC2217)
+  * Otherwise (or empty) → **USB** (`/dev/ttyUSB0` fallback)
+
+---
+
+## Nodes in the palette
+
+### 1) Config: **`flasher-folder`**
+
+Holds base folder and defaults for credentials.
+
+* **Name** (optional)
+* **Folder** (e.g. `~/iot-systems/demo`)
+* **WiFi SSID** / **WiFi Password**
+* **MQTT Host** (e.g. `192.168.14.1`)
+
+### 2) Config: **`flasher-node`**
+
+References a `flasher-folder` and a specific node subfolder.
+
+* **Name** (optional)
+* **Folder** (`flasher-folder` reference)
+* **Node Name** (e.g. `test01`)
+
+### 3) Runtime node: **`flasher`**
+
+* **Name** (optional)
+* **Folder** (`flasher-folder` reference)
+* **Node Name**
+* **Controller Type** (see list above)
+* **Sensors 1–3** with **Pins**, **MQTT channel** and optional **Filter** (+ parameters)
+* **Serial Port** (e.g. `/dev/ttyUSB0` or `rfc2217://192.168.14.1:3333`)
+
+On deploy, the node:
+
+1. Ensures folder structure exists / initializes template if needed
+2. Updates `system.conf` (Wi‑Fi & MQTT)
+3. Writes `node.conf` (board)
+4. Regenerates `setup.cpp` lines for configured sensors (+ filters)
+5. Executes flashing via `iot exec deploy serial ...`
+
+---
+
+## Runtime overrides (via `msg`)
+
+Any of these can be provided at runtime to override the UI config:
+
 ```js
-msg.folder = "~/iot-systems/demo01";
-msg.nodeName = "node1";
-msg.port = "/dev/ttyUSB1";
+msg.folder          = "~/iot-systems/demo01";   // base folder
+msg.nodeName        = "node1";                  // subfolder name
+msg.port            = "/dev/ttyUSB1";          // or rfc2217://host:port
+
+msg.wifiSSID        = "MyWiFi";
+msg.wifiPassword    = "secret123";
+msg.mqttHost        = "192.168.14.1";           // optional, defaults to 192.168.14.1
+
+msg.controllerType  = "Wemos D1 Mini";          // board for node.conf
+
+// Sensors 1..3 (type, MQTT channel, pins as CSV), filters as JSON object
+msg.sensor1         = "dht";
+msg.mqttChannel1    = "kitchen/temperature";
+msg.sensor1Pins     = "5";                      // GPIO, one pin for DHT
+msg.filter1Type     = "average";
+msg.filter1Params   = { buflen: 100 };
+
+msg.sensor2         = "hcsr04";
+msg.mqttChannel2    = "kitchen/distance";
+msg.sensor2Pins     = "12,13";                  // TRIG,ECHO
+
+msg.sensor3         = "mfrc522";
+msg.mqttChannel3    = "kitchen/rfid";
 ```
 
-### Folder Init Node (`iot-init`)
-- **Folder**: Where to create the system and node structure
-- **Node Name**: Folder name for the new node
-- **WiFi SSID / Password**: Credentials to write into `system.conf`
+---
 
-Runtime override with:
-```js
-msg.folder = "~/iot-systems/demo02";
-msg.nodeName = "node2";
-msg.wifiSSID = "MyWiFi";
-msg.wifiPassword = "secret123";
-```
+## Output format
 
-## Output Format
-
-Both nodes return messages in the following format:
+**Success:**
 
 ```json
 {
   "success": true,
-  "output": "[stdout or status message]"
+  "output": "[stdout]",
+  "port": "/dev/ttyUSB0",
+  "method": "usb"  // or "net"
 }
 ```
 
-On error:
+**Error:**
 
 ```json
 {
@@ -98,6 +158,48 @@ On error:
   "error": "[stderr or error message]"
 }
 ```
+
+---
+
+## Installation
+
+```bash
+cd path/to/your/dev/folder
+
+# Clone the repository
+git clone https://github.com/fedirky/IoTempire-newNodes.git
+cd IoTempire-newNodes/node-red-contrib-flasher
+
+# Install & link the node
+npm install
+npm link
+
+# Link into your local Node-RED user dir
+cd ~/.node-red
+npm link node-red-contrib-flasher
+```
+
+Restart Node-RED (IoTempower helpers shown here):
+
+```bash
+iot exec node-red-stop
+iot exec node-red
+```
+
+> Make sure the **`iot`** CLI is installed and available in `PATH`.
+
+---
+
+## HTTP admin endpoints (used by the editor UI)
+
+* `GET  /flasher/list-nodes?folder=~/iot-systems/demo` → returns subfolder names
+* `POST /flasher/create-node` `{ folder, nodeName }`
+* `POST /flasher/rename-node` `{ folder, from, to }`
+
+These power the folder picker and the + / ✏️ buttons in the editor.
+
+---
+
 
 ## License
 
