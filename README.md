@@ -24,8 +24,6 @@ This repository currently contains **one** custom Node-RED node:
     * `IOTEMPOWER_MQTT_HOST` (default `192.168.14.1` if not provided)
 * Writes controller choice into `node.conf` as `board="..."`.
 
-> **Heads‑up:** The code expects `resources/node_template` and `resources/system.conf` to be present in the package. Ensure these files exist (or create your own equivalents) so initialization can succeed.
-
 ### Controller & sensors
 
 * **Controller selection** (stored in `node.conf`):
@@ -33,14 +31,32 @@ This repository currently contains **one** custom Node-RED node:
   * `Wemos D1 Mini`
   * `m5stickc_plus`
   * `m5stickc_plus2`
-* **Sensors (up to three)** with optional **filters**. On deploy, the node writes lines into `setup.cpp` for each configured sensor.
-* **Currently supported in backend validation**:
 
-  * `dht` — requires **1** pin → generates `dht(channel, pin)`
-  * `hcsr04` — requires **2** pins → `hcsr04(channel, trig, echo).with_precision(10)`
-  * `mfrc522` — **0** pins (SPI on default SS 32 inside code) → `mfrc522(channel, 32)`
+* **Supported sensors (UI + validation mapping):**
 
-Other sensor types appear in the editor UI but are not yet accepted by the backend validator.
+  * `bmp085` — Barometer (SDA,SCL)
+  * `bmp180` — Barometer (SDA,SCL)
+  * `bmp280` — Barometer (SDA,SCL)
+  * `button` — Input button (Pin)
+  * `display` — SSD1306/u8g2 Display (SDA,SCL)
+  * `display44780` — LCD Display (SDA,SCL)
+  * `dht` — Temperature/Humidity (1 pin)
+  * `gyro6050` — Gyroscope MPU6050 (SDA,SCL)
+  * `gyro9250` — Gyroscope MPU9250 (SDA,SCL)
+  * `hx711` — Load Cell / Weight Sensor (SCK,DOUT)
+  * `output` — Output (LED/Relay) (Pin)
+  * `mpr121` — Capacitive Touch (SDA,SCL)
+  * `hcsr04` — Ultrasonic Distance (2 pins: trig,echo)
+  * `mfrc522` — Tag Reader MFRC522 (0 pins, hardware SPI)
+  * `pwm` — PWM Output (Pin)
+  * `rgb_single` — RGB LED (R,G,B)
+  * `rgb_single_inverted` — RGB LED inverted (R,G,B)
+  * `rgb_strip_grb` — RGB LED Strip GRB (DataPin)
+  * `rgb_strip_brg` — RGB LED Strip BRG (DataPin)
+  * `servo` — Servo Motor (Pin)
+  * `servo_switch` — Servo Switch (Pin)
+
+On deploy, the node writes corresponding lines into `setup.cpp` for each configured sensor, along with optional **filters**.
 
 ### Filters
 
@@ -93,7 +109,7 @@ References a `flasher-folder` and a specific node subfolder.
 * **Node Name**
 * **Controller Type** (see list above)
 * **Sensors 1–3** with **Pins**, **MQTT channel** and optional **Filter** (+ parameters)
-* **Serial Port** (e.g. `/dev/ttyUSB0` or `rfc2217://192.168.14.1:3333`)
+* **Serial Port** (e.g. `/dev/ttyUSB0`, needed only for USB deployment)
 
 On deploy, the node:
 
@@ -199,7 +215,6 @@ iot exec node-red
 These power the folder picker and the + / ✏️ buttons in the editor.
 
 ---
-
 
 ## License
 
