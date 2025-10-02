@@ -65,6 +65,7 @@ module.exports = function(RED) {
     this.nodeName = n.nodeName || "test01";
     this.wifiSSID = n.wifiSSID || "";
     this.wifiPassword = n.wifiPassword || "";
+    this.mqttHost = n.mqttHost || "";
   }
   RED.nodes.registerType("flasher-folder", FlasherFolder);
 
@@ -79,8 +80,10 @@ module.exports = function(RED) {
     // Base parameters from config
     const baseFolder     = (folderConfig.path || "~/iot-systems/demo").replace(/^~\//, os.homedir() + "/");
     const baseNode       = config.nodeName;
+    const deployMethod   = config.deployMethod || "usb";
     const port           = config.port;
     const controllerType = config.controllerType;
+    
 
     // ---- Build filter ----
     const q = (s, def) => JSON.stringify(s != null && s !== "" ? s : def);
@@ -134,12 +137,45 @@ module.exports = function(RED) {
 
     node.status({ fill: "blue", shape: "dot", text: "ready" });
 
+    // допоміжна функція — зібрати команду прошивки залежно від методу
+    function buildDeployCommand(method, port, targetFolder) {
+      const m = String(method || "usb").toLowerCase();
+      let via, cmd, warn = null;
+
+      if (m === "mango") {
+        // ІГНОРУЄМО будь-який port; команда завжди однакова
+        via = "Mango";
+        const p = "rfc2217://192.168.14.1:5000";
+        cmd = `cd "${targetFolder}" && iot exec deploy serial ${p}`;
+        return { cmd, finalPort: p, via, warn };
+      }
+
+      // USB-гілка
+      via = "USB";
+      let p = port;
+      if (!p || /^rfc2217:\/\//.test(p)) {
+        if (/^rfc2217:\/\//.test(p)) {
+          warn = `USB mode обрано, але порт має вигляд RFC2217 (${p}). Використовую /dev/ttyUSB0.`;
+        }
+        p = "/dev/ttyUSB0";
+      }
+      cmd = `cd "${targetFolder}" && iot exec deploy serial --upload-port "${p}"`;
+      return { cmd, finalPort: p, via, warn };
+    }
+
+    // ======== увесь модуль обробки повідомлення ========
     node.on("input", function(msg) {
+      node.warn(`[flasher:input] msg.deployMethod=${msg.deployMethod} | config.deployMethod=${config.deployMethod}`);
+
+
       // Override with msg values if provided
       const folder           = (msg.folder   || baseFolder).replace(/^~\//, os.homedir() + "/");
       const nodeName         = msg.nodeName || baseNode;
-      const uploadPort       = msg.port     || port;
       const chosenController = msg.controllerType || controllerType;
+
+      // === deploy method + port ===
+      const method = String(msg.deployMethod || config.deployMethod || "usb").toLowerCase();
+      let finalPortInput = msg.port || config.port || "";
 
       // Paths
       const tplRoot      = "$IOTEMPOWER_ROOT/lib/system_template";
@@ -174,7 +210,6 @@ module.exports = function(RED) {
           return;
         }
       } else if (!fs.existsSync(targetFolder)) {
-        // Copy node template if node folder is missing
         try {
           execSync(`cp -R "${tplRoot}/node_template" "${targetFolder}"`, {shell:'/bin/bash'});
         } catch (err) {
@@ -184,23 +219,29 @@ module.exports = function(RED) {
         }
       }
 
-      // Update WiFi credentials in system.conf
+      // Update WiFi credentials and MQTT host in system.conf
       try {
         let data = fs.readFileSync(sysConf, 'utf8')
           .replace(/^IOTEMPOWER_AP_NAME=.*$/m, '')
           .replace(/^IOTEMPOWER_AP_PASSWORD=.*$/m, '')
+          .replace(/^IOTEMPOWER_MQTT_HOST=.*$/m, '')
           .trim();
-        const wifiSSID = msg.wifiSSID || folderConfig.wifiSSID || config.wifiSSID || '';
-        const wifiPass = msg.wifiPassword || folderConfig.wifiPassword || config.wifiPassword || '';
+
+        const wifiSSID = msg.wifiSSID || folderConfig.wifiSSID;
+        const wifiPass = msg.wifiPassword || folderConfig.wifiPassword;
+        const mqttHost = msg.mqttHost || folderConfig.mqttHost || "192.168.14.1"; // <-- нове поле
+
         data += `
 IOTEMPOWER_AP_NAME="${wifiSSID}"
 IOTEMPOWER_AP_PASSWORD="${wifiPass}"
+IOTEMPOWER_MQTT_HOST="${mqttHost}"
 `;
+
         fs.writeFileSync(sysConf, data, 'utf8');
-        node.log('Updated WiFi credentials in system.conf');
+        node.log('Updated WiFi credentials and MQTT host in system.conf');
       } catch (err) {
-        node.error(`WiFi config error: ${err.message}`);
-        node.status({ fill: "red", shape: "ring", text: "wifi config error" });
+        node.error(`WiFi/MQTT config error: ${err.message}`);
+        node.status({ fill: "red", shape: "ring", text: "wifi/mqtt config error" });
         return;
       }
 
@@ -224,16 +265,13 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
         return;
       }
 
-      // ---- NEW LOGIC: Handle three sensors with MQTT + pins + filter ----
+      // ---- Sensors ----
       const validSensors = ["dht", "mfrc522", "hcsr04"];
-
-      // Collect sensor configurations
       const sensors = [1, 2, 3].map(i => ({
         type:   msg[`sensor${i}`]        || config[`sensor${i}`]        || "",
         channel:msg[`mqttChannel${i}`]   || config[`mqttChannel${i}`]   || "",
         pins:  (msg[`sensor${i}Pins`]    || config[`sensor${i}Pins`]    || "")
                 .split(/\s*,\s*/).filter(Boolean),
-        // === NEW: filter selection + params (JSON)
         filterType:  msg[`filter${i}Type`]  || config[`filter${i}Type`]  || "",
         filterParams:(() => {
           const raw = msg[`filter${i}Params`] || config[`filter${i}Params`] || "{}";
@@ -242,11 +280,8 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
         })()
       }));
 
-      // ---- VALIDATE AFTER sensors IS INITIALIZED ----
       const REQUIRED_PINS = { dht: 1, hcsr04: 2, mfrc522: 0 };
-
       let validationErrors = [];
-
       sensors.forEach((s, idx) => {
         if (!s.type) return;
         if (!validSensors.includes(s.type)) {
@@ -261,7 +296,6 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
           validationErrors.push(`Sensor ${idx+1} (${s.type}) requires ${need} pin(s), got ${s.pins.length}.`);
         }
       });
-
       if (validationErrors.length) {
         const errMsg = `Validation failed:\n- ` + validationErrors.join("\n- ");
         node.status({ fill: "red", shape: "ring", text: "validation error" });
@@ -271,49 +305,78 @@ IOTEMPOWER_AP_PASSWORD="${wifiPass}"
         return;
       }
 
-      // Helper to build base device call (WITHOUT ';')
       function buildDeviceCall(s) {
         switch (s.type) {
           case "dht":
-            // Expect 1 pin
             return `dht(${s.channel}, ${s.pins[0]})`;
           case "mfrc522":
-            // Fixed pin mapping (RFID reader)
             return `mfrc522(${s.channel}, 32)`;
           case "hcsr04":
-            // Expect 2 pins
             return `hcsr04(${s.channel}, ${s.pins[0]}, ${s.pins[1]}).with_precision(10)`;
-          default:
-            return "";
+          case "bmp085":
+            return `bmp085(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "bmp180":
+            return `bmp180(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "bmp280":
+            return `bmp280(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "button":
+            return `input(${s.channel}, ${s.pins[0]}, "depressed", "pressed").with_debounce(5)`;
+          case "display":
+            return `display(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "display44780":
+            return `display44780(${s.channel}, 16, 2).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "gyro6050":
+            return `gyro6050(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "gyro9250":
+            return `gyro9250(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "hx711":
+            return `hx711(${s.channel}, ${s.pins[0]}, ${s.pins[1]}, 450, false)`;
+          case "output":
+            return `output(${s.channel}, ${s.pins[0]}, "on", "off")`;
+          case "mpr121":
+            return `mpr121(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
+          case "pwm":
+            return `pwm(${s.channel}, ${s.pins[0]}, 1000)`; 
+          case "rgb_strip_grb":
+            return `rgb_strip_bus(${s.channel}, ${s.num_leds}, F_GRB, NeoEsp8266Uart1800KbpsMethod, ${s.pins[0]})`;
+          case "rgb_strip_brg":
+            return `rgb_strip_bus(${s.channel}, ${s.num_leds}, F_BRG, NeoEsp8266Uart1800KbpsMethod, ${s.pins[0]})`;
+          case "rgb_single":
+            return `rgb_single(${s.channel}, ${s.pins[0]}, ${s.pins[1]}, ${s.pins[2]}, false)`;
+          case "rgb_single_inverted":
+            return `rgb_single(${s.channel}, ${s.pins[0]}, ${s.pins[1]}, ${s.pins[2]}, true)`;
+          case "servo":
+            return `servo(${s.channel}, ${s.pins[0]}, 600, 2400, 700)`;
+          case "servo_switch":
+            return `servo_switch(${s.channel}, ${s.pins[0]}, 0, 180, 90, "on", "off", 700, 600, 2400)`;
+
+          default:       return "";
         }
       }
 
-      // Append lines to setup.cpp (device + optional filter chain)
       sensors.forEach((s, idx) => {
         if (!s.type || !validSensors.includes(s.type)) return;
-
         const baseCall = buildDeviceCall(s);
         if (!baseCall) return;
-
-        // === NEW: build one filter suffix for the sensor (if chosen)
         const suffix = buildFilterSuffix(s.filterType, s.filterParams);
         const line = baseCall + (suffix || "") + ";";
-
         fs.appendFileSync(setupFile, line + "\n");
         node.log(`Added setup code [S${idx+1}]: ${line}`);
       });
 
-      // Deploy command
-      const cmd = `cd ${targetFolder} && iot exec deploy serial --upload-port ${uploadPort}`;
-      node.status({ fill: "yellow", shape: "ring", text: `flashing ${nodeName}` });
+      // === сформувати команду прошивки через утиліту ===
+      const { cmd, finalPort, via, warn } = buildDeployCommand(method, finalPortInput, targetFolder);
+      if (warn) node.warn(warn);
+
+      node.status({ fill: "yellow", shape: "ring", text: `flashing ${nodeName} via ${via}` });
 
       exec(cmd, (err, stdout, stderr) => {
         if (err) {
           node.status({ fill: "red", shape: "ring", text: "error" });
-          msg.payload = { success: false, error: stderr.trim() || err.message };
+          msg.payload = { success: false, error: stderr && stderr.trim() ? stderr.trim() : err.message };
         } else {
           node.status({ fill: "green", shape: "dot", text: "done" });
-          msg.payload = { success: true, output: stdout.trim() };
+          msg.payload = { success: true, output: stdout.trim(), port: finalPort, method: via.toLowerCase() };
         }
         node.send(msg);
         setTimeout(() => node.status({}), 5000);

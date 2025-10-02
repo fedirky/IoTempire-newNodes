@@ -7,7 +7,8 @@
     const controller = $("#node-input-controllerType").val();
     const options = pins[controller] || [];
     const sensorCode = $("#node-input-sensor"+idx).val() || "";
-    const req = spec[sensorCode] || [];
+    const sensorMeta = spec[sensorCode] || {};
+    const req = sensorMeta.pins || [];
     const existing = ($("#node-input-sensor"+idx+"Pins").val() || "")
       .split(",").map(s=>s.trim()).filter(Boolean);
 
@@ -93,8 +94,9 @@
         {
           text: "Save",
           click: function () {
-            const sensorCode = $("#node-input-sensor"+idx).val() || "";
-            const req = spec[sensorCode] || [];
+          const sensorCode = $("#node-input-sensor"+idx).val() || "";
+          const sensorMeta = spec[sensorCode] || {};
+          const req = sensorMeta.pins || [];
 
             // Collect selected pins in order
             const pins = [];

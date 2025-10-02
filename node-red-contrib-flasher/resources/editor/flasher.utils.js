@@ -7,8 +7,8 @@
   // ---- Global constants ----
   const FLASHER_CONTROLLER_PINS = {
     "Wemos D1 Mini": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","A0"],
-    "m5stickc":      ["G26", "G25", "G0"],
-    "m5stick":       ["G26", "G25", "G0"]
+    "m5stickc_plus":      ["G26", "G25", "G0"],
+    "m5stickc_plus2":       ["G26", "G25", "G0"]
   };
 
   /**
@@ -21,24 +21,118 @@
     "": {
       label: "— None —",
       pins: [],
-      controllers: ["Wemos D1 Mini","m5stickc", "m5stick"]
+      controllers: ["Wemos D1 Mini","m5stickc_plus", "m5stickc_plus2"]
+    },
+    "bmp085": {
+      label: "Barometer (BMP085)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "bmp180": {
+      label: "Barometer (BMP180)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "bmp280": {
+      label: "Barometer (BMP280)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "button": {
+      label: "Button (Input)",
+      pins: ["Pin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "display": {
+      label: "Display (SSD1306/u8g2)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "display44780": {
+      label: "LCD Display (HD44780/PCF8574T)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
     },
     "dht": {
       label: "Temperature/Humidity (DHT)",
       pins: ["Pin1"],
-      controllers: ["Wemos D1 Mini","m5stickc", "m5stick"]
+      controllers: ["Wemos D1 Mini","m5stickc_plus", "m5stickc_plus2"]
+    },
+    "gyro6050": {
+      label: "Gyroscope (MPU6050)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "gyro9250": {
+      label: "Gyroscope (MPU9250)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "hx711": {
+      label: "Load Cell / Weight Sensor (HX711)",
+      pins: ["SCK", "DOUT"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "output": {
+      label: "Output (LED / Relay)",
+      pins: ["Pin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "mpr121": {
+      label: "Capacitive Touch (MPR121)",
+      pins: ["SDA","SCL"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
     },
     "hcsr04": {
-      label: "Ultrasonic Distance (HCSR04)",
+      label: "Ultrasonic Distance (hcsr04/rcwl-1601)",
       pins: ["Pin1","Pin2"],
-      controllers: ["Wemos D1 Mini","m5stickc", "m5stick"]
+      controllers: ["Wemos D1 Mini","m5stickc_plus", "m5stickc_plus2"]
     },
     "mfrc522": {
       label: "Tag Reader (MFRC522)",
       pins: [], // hardware-bound; no manual selection
       controllers: ["Wemos D1 Mini"] // not supported on m5stickc
-    }
+    },
+    "pwm": {
+      label: "PWM Output 1000",
+      pins: ["Pin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "rgb_single": {
+      label: "RGB LED (single)",
+      pins: ["R", "G", "B"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "rgb_single_inverted": {
+      label: "RGB LED (single inverted)",
+      pins: ["R", "G", "B"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
+    },
+    "rgb_strip_grb": {
+      label: "RGB LED Strip (F_GRB)",
+      pins: ["DataPin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
+    },
+    "rgb_strip_brg": {
+      label: "RGB LED Strip (F_BRG)",
+      pins: ["DataPin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
+    },
+    "servo": {
+      label: "Servo Motor",
+      pins: ["Pin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
+    },
+    "servo_switch": {
+      label: "Servo Switch",
+      pins: ["Pin"],
+      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
+    },
+
   };
+  //TODO: Sensirion SCD4X CO2 sensor and Grove SGP30 gas sensor¶
+
+
 
   // ---- State bootstrap ----
   function flasherInitState(ctx) {

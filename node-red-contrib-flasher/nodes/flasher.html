@@ -26,18 +26,21 @@
     <label for="node-config-input-wifiPassword"><i class="fa fa-lock"></i> WiFi Password</label>
     <input type="password" id="node-config-input-wifiPassword" placeholder="Your WiFi Password">
   </div>
+  <div class="form-row">
+    <label for="node-config-input-mqttHost"><i class="fa fa-server"></i> MQTT Host</label>
+    <input type="text" id="node-config-input-mqttHost" placeholder="192.168.14.1">
+  </div>
 </script>
 
 <script type="text/javascript">
 RED.nodes.registerType("flasher-folder", {
   category: "config",
   defaults: {
-    name:     { value: "" },
-    path:     { value: "~/iot-systems/demo", required: false },
-    wifiSSID: { value: "", required: false }
-  },
-  credentials: {
-    wifiPassword: { type: "password" }
+    name:         { value: "" },
+    path:         { value: "~/iot-systems/demo", required: false },
+    wifiSSID:     { value: "", required: false },
+    wifiPassword: { value: "", required: false },   // <-- тепер це звичайне поле
+    mqttHost:     { value: "192.168.14.1", required: false } 
   },
   label: function () {
     return this.name || this.path || "folder";
@@ -126,6 +129,15 @@ RED.nodes.registerType("flasher-node", {
         </div>
       </div>
 
+      <!-- NEW: Deploy method -->
+      <div class="form-row">
+        <label for="node-input-deployMethod"><i class="fa fa-exchange"></i> Deploy via</label>
+        <select id="node-input-deployMethod" style="width:70%;">
+          <option value="usb">USB (local /dev/ttyUSBx)</option>
+          <option value="mango">Mango (RFC2217 over network)</option>
+        </select>
+      </div>
+
       <div class="form-row">
         <label for="node-input-port"><i class="fa fa-plug"></i> Serial Port</label>
         <input type="text" id="node-input-port" placeholder="/dev/ttyUSB0">
@@ -138,8 +150,8 @@ RED.nodes.registerType("flasher-node", {
         <label for="node-input-controllerType"><i class="fa fa-microchip"></i> Controller Type</label>
         <select id="node-input-controllerType">
           <option value="Wemos D1 Mini">Wemos D1 Mini</option>
-          <option value="m5stick">M5Stick</option>
-          <option value="m5stickc">M5StickC</option>
+          <option value="m5stickc_plus">M5Stick CPlus</option>
+          <option value="m5stickc_plus2">M5Stick CPlus2</option>
         </select>
       </div>
 
@@ -297,6 +309,8 @@ RED.nodes.registerType('flasher', {
 
     folder:          { type: "flasher-folder", required: true },
     nodeName:        { value: "test01", required: true },
+    
+    deployMethod:    { value: "usb", required: true },
     port:            { value: "/dev/ttyUSB0", required: true }
   },
   label: function() {
