@@ -7,132 +7,125 @@
   // ---- Global constants ----
   const FLASHER_CONTROLLER_PINS = {
     "Wemos D1 Mini": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","A0"],
-    "m5stickc_plus":      ["G26", "G25", "G0"],
-    "m5stickc_plus2":       ["G26", "G25", "G0"]
+    "m5stickc_plus": ["G26", "G25", "G0"],
+    "m5stickc_plus2": ["G26", "G25", "G0"]
   };
 
-  /**
-   * SENSOR SPEC:
-   * - label: shown in dropdowns
-   * - pins: which pin fields must be manually selected (empty => no manual pins)
-   * - controllers: list of controllers that support this sensor
-   */
-  const FLASHER_SENSOR_SPEC = {
+  // Default controllers if not specified per-device (devices.ini doesn't carry this)
+  const DEFAULT_CONTROLLERS = ["Wemos D1 Mini","m5stickc_plus","m5stickc_plus2"];
+
+  // Minimal placeholder spec until devices.ini is loaded
+  let FLASHER_SENSOR_SPEC = {
     "": {
       label: "— None —",
       pins: [],
-      controllers: ["Wemos D1 Mini","m5stickc_plus", "m5stickc_plus2"]
-    },
-    "bmp085": {
-      label: "Barometer (BMP085)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "bmp180": {
-      label: "Barometer (BMP180)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "bmp280": {
-      label: "Barometer (BMP280)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "button": {
-      label: "Button (Input)",
-      pins: ["Pin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "display": {
-      label: "Display (SSD1306/u8g2)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "display44780": {
-      label: "LCD Display (HD44780/PCF8574T)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "dht": {
-      label: "Temperature/Humidity (DHT)",
-      pins: ["Pin1"],
-      controllers: ["Wemos D1 Mini","m5stickc_plus", "m5stickc_plus2"]
-    },
-    "gyro6050": {
-      label: "Gyroscope (MPU6050)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "gyro9250": {
-      label: "Gyroscope (MPU9250)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "hx711": {
-      label: "Load Cell / Weight Sensor (HX711)",
-      pins: ["SCK", "DOUT"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "output": {
-      label: "Output (LED / Relay)",
-      pins: ["Pin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "mpr121": {
-      label: "Capacitive Touch (MPR121)",
-      pins: ["SDA","SCL"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "hcsr04": {
-      label: "Ultrasonic Distance (hcsr04/rcwl-1601)",
-      pins: ["Pin1","Pin2"],
-      controllers: ["Wemos D1 Mini","m5stickc_plus", "m5stickc_plus2"]
-    },
-    "mfrc522": {
-      label: "Tag Reader (MFRC522)",
-      pins: [], // hardware-bound; no manual selection
-      controllers: ["Wemos D1 Mini"] // not supported on m5stickc
-    },
-    "pwm": {
-      label: "PWM Output 1000",
-      pins: ["Pin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "rgb_single": {
-      label: "RGB LED (single)",
-      pins: ["R", "G", "B"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "rgb_single_inverted": {
-      label: "RGB LED (single inverted)",
-      pins: ["R", "G", "B"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2"]
-    },
-    "rgb_strip_grb": {
-      label: "RGB LED Strip (F_GRB)",
-      pins: ["DataPin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
-    },
-    "rgb_strip_brg": {
-      label: "RGB LED Strip (F_BRG)",
-      pins: ["DataPin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
-    },
-    "servo": {
-      label: "Servo Motor",
-      pins: ["Pin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
-    },
-    "servo_switch": {
-      label: "Servo Switch",
-      pins: ["Pin"],
-      controllers: ["Wemos D1 Mini", "m5stickc_plus", "m5stickc_plus2", "esp32"]
-    },
-
+      controllers: DEFAULT_CONTROLLERS
+    }
   };
-  //TODO: Sensirion SCD4X CO2 sensor and Grove SGP30 gas sensor¶
 
+  // ---- devices.ini loader & parser ----
 
+  function getCurrentScriptBase() {
+    // Find the script tag whose src ends with 'flasher.utils.js' and derive its base URL
+    const scripts = document.getElementsByTagName('script');
+    for (let i = scripts.length - 1; i >= 0; i--) {
+      const src = scripts[i].getAttribute('src') || '';
+      if (src.indexOf('flasher.utils.js') !== -1) {
+        const q = src.indexOf('?') !== -1 ? src.indexOf('?') : src.length;
+        const trimmed = src.substring(0, q);
+        const lastSlash = trimmed.lastIndexOf('/');
+        return lastSlash === -1 ? '.' : trimmed.substring(0, lastSlash);
+      }
+    }
+    return '.'; // fallback
+  }
+
+  function fetchDevicesIni() {
+    const base = getCurrentScriptBase();
+    const url = base + '/devices.ini';
+    return $.ajax({ url, dataType: 'text', cache: false });
+  }
+
+  function parseDevicesIniToSpec(text) {
+    const lines = text.split(/\r?\n/);
+    const sections = {};
+    let current = null;
+
+    for (let raw of lines) {
+      // strip comments starting with ';' (ini style)
+      let line = raw;
+      const sc = line.indexOf(';');
+      if (sc !== -1) line = line.slice(0, sc);
+      line = line.trim();
+      if (!line) continue;
+
+      const secMatch = line.match(/^\[([^\]]+)\]$/);
+      if (secMatch) {
+        const name = secMatch[1].trim();
+        current = (sections[name] = sections[name] || { __name: name });
+        continue;
+      }
+
+      if (!current) continue;
+
+      const kv = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.*)$/);
+      if (kv) {
+        const key = kv[1].toLowerCase();
+        const val = kv[2].trim();
+        current[key] = val;
+      }
+    }
+
+    // Build FLASHER spec from sections that have a 'label'
+    const spec = {
+      "": {
+        label: "— None —",
+        pins: [],
+        controllers: DEFAULT_CONTROLLERS
+      }
+    };
+
+    Object.keys(sections).forEach((name) => {
+      const sec = sections[name];
+      if (!sec || !sec.label) return; // only sections with a label are included
+
+      // pins: comma-separated → array of required pin field names
+      const pins = (sec.pins || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      // controllers: default to all 3 unless device needs restriction
+      let controllers = DEFAULT_CONTROLLERS.slice();
+      if (name === 'mfrc522') controllers = ["Wemos D1 Mini"]; // exception
+      //TODO: Need to add it to devices.ini
+      spec[name] = {
+        label: sec.label,
+        pins,
+        controllers,
+        start: sec.start || "" // keep for code generation (not used by UI directly)
+      };
+    });
+
+    return spec;
+  }
+
+  function loadFlasherSpecFromIni() {
+    return fetchDevicesIni()
+      .then(parseDevicesIniToSpec)
+      .then((spec) => {
+        FLASHER_SENSOR_SPEC = spec;
+        // expose globally
+        window.FLASHER_SENSOR_SPEC = FLASHER_SENSOR_SPEC;
+        return spec;
+      })
+      .catch((err) => {
+        console.error('Failed to load devices.ini:', err);
+        // still expose whatever placeholder we have
+        window.FLASHER_SENSOR_SPEC = FLASHER_SENSOR_SPEC;
+        return FLASHER_SENSOR_SPEC;
+      });
+  }
 
   // ---- State bootstrap ----
   function flasherInitState(ctx) {
@@ -143,7 +136,28 @@
       spec: FLASHER_SENSOR_SPEC
     };
 
-    // Ensure initial compatibility (in case flow had invalid combos)
+    // Load spec asynchronously from devices.ini, then refresh UI bits
+    loadFlasherSpecFromIni().then((spec) => {
+      state.spec = spec;
+
+      // Refresh selects & pins buttons using the loaded spec
+      try {
+        // Re-populate sensor selects per controller
+        ['1','2','3'].forEach((i) => {
+          const $sel = $("#node-input-sensor" + i);
+          const current = $sel.val();
+          flasherPopulateSensorSelect(state, $sel, current);
+          flasherUpdateSensorButton(state, i);
+          flasherUpdatePinsButton(state, i);
+        });
+
+        // Re-validate combos silently
+        [1,2,3].forEach((i)=> flasherEnforceSensorCompatibility(state, i, /*silent=*/true));
+
+      } catch (e) { /* ignore editor-timing races */ }
+    });
+
+    // Ensure initial compatibility (in case flow had invalid combos) even before spec arrives
     try {
       [1,2,3].forEach((i) => flasherEnforceSensorCompatibility(state, i, /*silent=*/true));
     } catch(e) {}
@@ -155,19 +169,25 @@
   function flasherIsSensorSupported(state, sensorType) {
     const { spec, $ } = state;
     const ctrl = $("#node-input-controllerType").val();
-    const s = spec[sensorType] || spec[""];
-    return (s.controllers || []).includes(ctrl);
+    const s = spec[sensorType] || spec[""] || {};
+    const controllers = (s.controllers && s.controllers.length) ? s.controllers : DEFAULT_CONTROLLERS;
+    return controllers.includes(ctrl);
   }
 
   function flasherGetSupportedSensors(state) {
     const { spec, $ } = state;
     const ctrl = $("#node-input-controllerType").val();
-    return Object.keys(spec).filter((k) => (spec[k].controllers || []).includes(ctrl));
+    const keys = Object.keys(spec);
+    return keys.filter((k) => {
+      const entry = spec[k] || {};
+      const controllers = (entry.controllers && entry.controllers.length) ? entry.controllers : DEFAULT_CONTROLLERS;
+      return controllers.includes(ctrl);
+    });
   }
 
   function flasherGetSensorPinsSpec(state, sensorType) {
     const { spec } = state;
-    const s = spec[sensorType] || spec[""];
+    const s = spec[sensorType] || spec[""] || {};
     return s.pins || [];
   }
 
@@ -206,7 +226,7 @@
 
     $select.empty();
     supported.forEach((key) => {
-      const meta = spec[key] || { label: key };
+      const meta = spec[key] || { label: key, pins: [], controllers: DEFAULT_CONTROLLERS };
       const opt = $("<option/>").attr("value", key).text(meta.label || key);
       $select.append(opt);
     });
@@ -248,7 +268,7 @@
     const s = $("#node-input-sensor" + idx).val() || "";
     const t = $("#node-input-mqttChannel" + idx).val() || "";
     let label = "Sensor " + idx + " Settings…";
-    if (s) label = s + (t ? " → " + t : "");
+    if (s) label = (state.spec[s]?.label || s) + (t ? " → " + t : "");
     $("#btn-s" + idx).text(label);
   }
 
@@ -335,8 +355,6 @@
         flasherEnforceSensorCompatibility(state, i);
         flasherUpdatePinsButton(state, i);
       });
-      // If a sensor dialog is open and needs live refresh,
-      // external code can call flasherPopulateSensorSelect again.
     });
   }
 
@@ -359,5 +377,5 @@
 
   // Also expose constants in case you need them elsewhere
   window.FLASHER_CONTROLLER_PINS = FLASHER_CONTROLLER_PINS;
-  window.FLASHER_SENSOR_SPEC = FLASHER_SENSOR_SPEC;
+  window.FLASHER_SENSOR_SPEC = FLASHER_SENSOR_SPEC; // will be replaced after load
 })();

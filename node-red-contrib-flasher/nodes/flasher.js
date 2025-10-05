@@ -3,6 +3,96 @@ const os = require("os");
 const path = require("path");
 const fs = require("fs");
 
+// ==== Load devices spec from resources/resourses editor/devices.ini ====
+const DEVICES_INI_PATHS = [
+  path.resolve(__dirname, '..', 'resources', 'editor', 'devices.ini'),
+  path.resolve(__dirname, '..', 'resourses', 'editor', 'devices.ini') // fallback на опечатку
+];
+
+function readDevicesIniText() {
+  for (const p of DEVICES_INI_PATHS) {
+    try {
+      if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+    } catch (_) {}
+  }
+  throw new Error('devices.ini not found in resources/resourses/editor');
+}
+
+function parseDevicesIni(text) {
+  const lines = String(text).split(/\r?\n/);
+  const sections = {};
+  let cur = null;
+
+  for (let raw of lines) {
+    // strip ini-style comments starting with ';' (also handles inline comments)
+    let line = raw;
+    const c = line.indexOf(';');
+    if (c !== -1) line = line.slice(0, c);
+    line = line.trim();
+    if (!line) continue;
+
+    const mSec = line.match(/^\[([^\]]+)\]$/);
+    if (mSec) {
+      cur = sections[mSec[1].trim()] = { __name: mSec[1].trim() };
+      continue;
+    }
+    if (!cur) continue;
+
+    const mKV = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.*)$/);
+    if (mKV) {
+      const key = mKV[1].toLowerCase();
+      const val = mKV[2].trim();
+      cur[key] = val; // keep raw (we’ll split pins/aliases later)
+    }
+  }
+
+  // Build spec only for sections with a label
+  const spec = {};
+  const escapeRE = s => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+  Object.keys(sections).forEach((name) => {
+    const sec = sections[name];
+    if (!sec.label) return;
+
+    const pins = (sec.pins || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const entry = {
+      key: name,
+      label: sec.label,
+      pins,
+      start: sec.start || "",
+      // keep raw aliases for later expansion
+      _aliases: (sec.aliases || "").split(/[\s,]+/).map(a => a.trim()).filter(Boolean)
+    };
+
+    spec[name] = entry;
+
+    // expand aliases as separate keys pointing to same entry (shallow copy)
+    entry._aliases.forEach(al => {
+      if (!spec[al]) spec[al] = { ...entry, key: al };
+    });
+  });
+
+  return spec;
+}
+
+let DEVICE_SPEC;
+try {
+  DEVICE_SPEC = parseDevicesIni(readDevicesIniText());
+} catch (e) {
+  DEVICE_SPEC = {}; // fail-safe
+  console.error('[flasher] Failed to load devices.ini:', e.message);
+}
+
+// Helpers built from ini
+const validSensors = Object.keys(DEVICE_SPEC);
+const REQUIRED_PINS = Object.fromEntries(
+  validSensors.map(k => [k, (DEVICE_SPEC[k].pins || []).length])
+);
+
 module.exports = function(RED) {
   // --- HTTP Admin endpoints for editor UI (list/create node folders) ---
   RED.httpAdmin.get("/flasher/list-nodes", function(req, res) {
@@ -266,29 +356,9 @@ IOTEMPOWER_MQTT_HOST="${mqttHost}"
       }
 
       // ---- Sensors ----
-      const validSensors = [
-        "bmp085",
-        "bmp180",
-        "bmp280",
-        "button",
-        "display",
-        "display44780",
-        "dht",
-        "gyro6050",
-        "gyro9250",
-        "hx711",
-        "output",
-        "mpr121",
-        "hcsr04",
-        "mfrc522",
-        "pwm",
-        "rgb_single",
-        "rgb_single_inverted",
-        "rgb_strip_grb",
-        "rgb_strip_brg",
-        "servo",
-        "servo_switch"
-      ];
+      // derived from devices.ini (only sections with label, aliases expanded)
+      const validSensors = Object.keys(DEVICE_SPEC);
+
       const sensors = [1, 2, 3].map(i => ({
         type:   msg[`sensor${i}`]        || config[`sensor${i}`]        || "",
         channel:msg[`mqttChannel${i}`]   || config[`mqttChannel${i}`]   || "",
@@ -302,29 +372,11 @@ IOTEMPOWER_MQTT_HOST="${mqttHost}"
         })()
       }));
 
-      const REQUIRED_PINS = {
-        bmp085: 2,              // SDA, SCL
-        bmp180: 2,              // SDA, SCL
-        bmp280: 2,              // SDA, SCL
-        button: 1,              // Pin
-        display: 2,             // SDA, SCL
-        display44780: 2,        // SDA, SCL
-        dht: 1,                 // Pin1
-        gyro6050: 2,            // SDA, SCL
-        gyro9250: 2,            // SDA, SCL
-        hx711: 2,               // SCK, DOUT
-        output: 1,              // Pin
-        mpr121: 2,              // SDA, SCL
-        hcsr04: 2,              // Pin1, Pin2
-        mfrc522: 0,             // hardware-bound
-        pwm: 1,                 // Pin
-        rgb_single: 3,          // R, G, B
-        rgb_single_inverted: 3, // R, G, B
-        rgb_strip_grb: 1,       // DataPin
-        rgb_strip_brg: 1,       // DataPin
-        servo: 1,               // Pin
-        servo_switch: 1         // Pin
-      };
+      // required pin count per device — from `pins = ...` in devices.ini
+      const REQUIRED_PINS = Object.fromEntries(
+        validSensors.map(k => [k, (DEVICE_SPEC[k].pins || []).length])
+      );
+
       let validationErrors = [];
       sensors.forEach((s, idx) => {
         if (!s.type) return;
@@ -350,52 +402,25 @@ IOTEMPOWER_MQTT_HOST="${mqttHost}"
       }
 
       function buildDeviceCall(s) {
-        switch (s.type) {
-          case "dht":
-            return `dht(${s.channel}, ${s.pins[0]})`;
-          case "mfrc522":
-            return `mfrc522(${s.channel}, 32)`;
-          case "hcsr04":
-            return `hcsr04(${s.channel}, ${s.pins[0]}, ${s.pins[1]}).with_precision(10)`;
-          case "bmp085":
-            return `bmp085(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "bmp180":
-            return `bmp180(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "bmp280":
-            return `bmp280(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "button":
-            return `input(${s.channel}, ${s.pins[0]}, "depressed", "pressed").with_debounce(5)`;
-          case "display":
-            return `display(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "display44780":
-            return `display44780(${s.channel}, 16, 2).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "gyro6050":
-            return `gyro6050(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "gyro9250":
-            return `gyro9250(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "hx711":
-            return `hx711(${s.channel}, ${s.pins[0]}, ${s.pins[1]}, 450, false)`;
-          case "output":
-            return `output(${s.channel}, ${s.pins[0]}, "on", "off")`;
-          case "mpr121":
-            return `mpr121(${s.channel}).i2c(${s.pins[0]}, ${s.pins[1]})`;
-          case "pwm":
-            return `pwm(${s.channel}, ${s.pins[0]}, 1000)`; 
-          case "rgb_strip_grb":
-            return `rgb_strip_bus(${s.channel}, ${s.num_leds}, F_GRB, NeoEsp8266Uart1800KbpsMethod, ${s.pins[0]})`;
-          case "rgb_strip_brg":
-            return `rgb_strip_bus(${s.channel}, ${s.num_leds}, F_BRG, NeoEsp8266Uart1800KbpsMethod, ${s.pins[0]})`;
-          case "rgb_single":
-            return `rgb_single(${s.channel}, ${s.pins[0]}, ${s.pins[1]}, ${s.pins[2]}, false)`;
-          case "rgb_single_inverted":
-            return `rgb_single(${s.channel}, ${s.pins[0]}, ${s.pins[1]}, ${s.pins[2]}, true)`;
-          case "servo":
-            return `servo(${s.channel}, ${s.pins[0]}, 600, 2400, 700)`;
-          case "servo_switch":
-            return `servo_switch(${s.channel}, ${s.pins[0]}, 0, 180, 90, "on", "off", 700, 600, 2400)`;
+        const spec = DEVICE_SPEC[s.type];
+        if (!spec) return "";
 
-          default:       return "";
+        let code = spec.start || "";
+        if (!code) return "";
+
+        code = code.replace(/\bname\b/g, String(s.channel || 'name'));
+
+        if (/\bnum_leds\b/.test(code) && s.num_leds != null && s.num_leds !== "") {
+          code = code.replace(/\bnum_leds\b/g, String(s.num_leds));
         }
+
+        (spec.pins || []).forEach((pinName, idx) => {
+          const re = new RegExp(`\\b${pinName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+          const val = (s.pins && s.pins[idx] != null) ? s.pins[idx] : pinName;
+          code = code.replace(re, String(val));
+        });
+
+        return code;
       }
 
       sensors.forEach((s, idx) => {
