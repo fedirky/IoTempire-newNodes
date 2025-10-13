@@ -277,6 +277,131 @@ RED.nodes.registerType("flasher-node", {
   </div>
 </script>
 
+<!-- HELP (help text in sidebar) -->
+<script type="text/html" data-help-name="flasher">
+  <div class="red-ui-help" style="padding: 6px;">
+  <h1 class="red-ui-help-title">flasher</h1>
+  <div class="red-ui-help"><span class="red-ui-text-bidi-aware" dir="">
+      <p>Flashes (deploys firmware to) an IoTempower node and prepares its folder structure: creates/renames node subfolders, initializes the system template, updates Wi-Fi/MQTT settings, generates <code>setup.cpp</code> from selected sensors and filters, and executes <code>iot exec deploy serial</code> via USB or RFC2217 (“Mango”).</p>
+      <p>The flash command can be defined in the node configuration and/or overridden by an incoming message.</p>
+
+      <h3><a class="red-ui-help-info-header expanded" href="#"><i class="fa fa-angle-right"></i>Inputs</a></h3>
+      <dl class="message-properties">
+          <dt class="optional">folder <span class="property-type">string</span></dt>
+          <dd>Base folder containing the IoTempower system. Supports <code>~/</code> shorthand.</dd>
+
+          <dt class="optional">nodeName <span class="property-type">string</span></dt>
+          <dd>Name of the node’s subfolder inside <code>folder</code>. Used as the flash target.</dd>
+
+          <dt class="optional">controllerType <span class="property-type">string</span></dt>
+          <dd>Type of controller (e.g. <code>Wemos D1 Mini</code>, <code>m5stickc_plus</code>, <code>m5stickc_plus2</code>). Written to <code>node.conf</code> and determines available pins.</dd>
+
+          <dt class="optional">deployMethod <span class="property-type">string</span></dt>
+          <dd><code>usb</code> (default) or <code>mango</code> (RFC2217). Defines how <code>iot exec deploy serial</code> is called.</dd>
+
+          <dt class="optional">port <span class="property-type">string</span></dt>
+          <dd>For <code>usb</code>: path to the serial port (e.g. <code>/dev/ttyUSB0</code>). For <code>mango</code> this is ignored (uses <code>rfc2217://192.168.14.1:5000</code>).</dd>
+
+          <dt class="optional">wifiSSID <span class="property-type">string</span></dt>
+          <dd>Wi-Fi SSID. Written to <code>system.conf</code>.</dd>
+
+          <dt class="optional">wifiPassword <span class="property-type">string</span></dt>
+          <dd>Wi-Fi password. Written to <code>system.conf</code>.</dd>
+
+          <dt class="optional">mqttHost <span class="property-type">string</span></dt>
+          <dd>MQTT broker host (default <code>192.168.14.1</code>). Written to <code>system.conf</code>.</dd>
+
+          <dt class="optional">sensor1, sensor2, sensor3 <span class="property-type">string</span></dt>
+          <dd>Sensor codes from <code>devices.ini</code> (e.g. <code>dht22</code>, <code>bh1750</code>). Used to generate device calls in <code>setup.cpp</code>.</dd>
+
+          <dt class="optional">mqttChannel1, mqttChannel2, mqttChannel3 <span class="property-type">string</span></dt>
+          <dd>MQTT channels for sensors (required for most sensors).</dd>
+
+          <dt class="optional">sensor1Pins, sensor2Pins, sensor3Pins <span class="property-type">string</span></dt>
+          <dd>Comma-separated list of pins according to the sensor type and controller (e.g. <code>D5,D6</code>).</dd>
+
+          <dt class="optional">filter1Type, filter2Type, filter3Type <span class="property-type">string</span></dt>
+          <dd>Names of filters (e.g. <code>average</code>, <code>jmc_median</code>, <code>binarize</code>...) applied to the corresponding sensor.</dd>
+
+          <dt class="optional">filter1Params, filter2Params, filter3Params <span class="property-type">object|string(JSON)</span></dt>
+          <dd>Filter configuration as an object or JSON string (e.g. <code>{"buflen":100}</code>).</dd>
+      </dl>
+
+      <h3><a class="red-ui-help-info-header expanded" href="#"><i class="fa fa-angle-right"></i>Outputs</a></h3>
+      <ol class="node-ports">
+          <li>Flash result
+              <dl class="message-properties">
+                  <dt>payload <span class="property-type">object</span></dt>
+                  <dd>
+                      <code>{ success: boolean, output?: string, error?: string, port?: string, method?: "usb"|"mango" }</code><br/>
+                      <i>success=true</i> — includes <code>output</code> (stdout) and used <code>port</code>/<code>method</code>;<br/>
+                      <i>success=false</i> — includes <code>error</code> describing the issue.
+                  </dd>
+              </dl>
+          </li>
+      </ol>
+
+      <h3><a class="red-ui-help-info-header expanded" href="#"><i class="fa fa-angle-right"></i>Details</a></h3>
+      <p><b>Folder preparation:</b> if <code>system.conf</code> is missing in <code>folder</code>, the node copies templates from <code>$IOTEMPOWER_ROOT/lib/system_template</code> (<code>node_template</code> + <code>system.conf</code>) and creates a <code>nodeName</code> subfolder.</p>
+      <p><b>Configuration update:</b> <code>system.conf</code> is updated with <code>IOTEMPOWER_AP_NAME</code>, <code>IOTEMPOWER_AP_PASSWORD</code>, <code>IOTEMPOWER_MQTT_HOST</code>. The <code>setup.cpp</code> file is regenerated and <code>controllerType</code> is written into <code>node.conf</code>.</p>
+      <p><b>Sensors and filters:</b> each of the three slots (1..3) is described by <code>sensorX</code>/<code>mqttChannelX</code> and (if needed) <code>sensorXPins</code>. The required number of pins is validated based on the sensor type. Each measurement chain can include a filter <code>filterXType</code> with parameters <code>filterXParams</code>.</p>
+      <p><b>Deployment:</b> 
+         <ul>
+           <li><code>usb</code> — runs <code>iot exec deploy serial --upload-port "&lt;port&gt;"</code>. If port is not provided, defaults to <code>/dev/ttyUSB0</code>. If RFC2217 URL is used in USB mode, the node warns and replaces it with a default port.</li>
+           <li><code>mango</code> — uses <code>rfc2217://192.168.14.1:5000</code> (ignores the <code>port</code> field).</li>
+         </ul>
+      </p>
+      <p><b>Node status:</b> during execution – “flashing”, on success – “done”, on failure – a red status with an error message. PID/process details are not displayed.</p>
+
+      <h4>HTTP endpoints (for UI)</h4>
+      <p>Used by the editor to manage node subfolders:</p>
+      <ul>
+          <li><code>GET&nbsp;/flasher/list-nodes?folder=~/iot-systems/demo</code> — list of subfolders</li>
+          <li><code>POST /flasher/create-node</code> <code>{ folder, nodeName }</code></li>
+          <li><code>POST /flasher/rename-node</code> <code>{ folder, from, to }</code></li>
+      </ul>
+
+      <h4>Validation and common errors</h4>
+      <p>The node validates:
+        <ul>
+          <li>existence or creatability of <code>folder</code>;</li>
+          <li>correct <code>wifiSSID</code>/<code>wifiPassword</code>/<code>mqttHost</code> during <code>system.conf</code> update;</li>
+          <li>presence of sensors in <code>devices.ini</code>, non-empty <code>mqttChannelX</code>, and sufficient number of pins for each sensor.</li>
+        </ul>
+        On failure, it returns <code>payload.success=false</code> with <code>payload.error</code> describing the issue.
+      </p>
+
+      <h4>Examples</h4>
+      <p><b>USB deploy (default port):</b></p>
+      <pre><code>{
+    "folder": "~/iot-systems/demo",
+    "nodeName": "kitchen",
+    "controllerType": "Wemos D1 Mini",
+    "deployMethod": "usb",
+    "sensor1": "dht22",
+    "mqttChannel1": "home/kitchen/temperature",
+    "sensor1Pins": "D5",
+    "filter1Type": "average",
+    "filter1Params": {"buflen": 50}
+}</code></pre>
+
+      <p><b>RFC2217 (“Mango”):</b></p>
+      <pre><code>{
+    "folder": "~/iot-systems/demo",
+    "nodeName": "livingroom",
+    "controllerType": "m5stickc_plus2",
+    "deployMethod": "mango",
+    "wifiSSID": "MyAP",
+    "wifiPassword": "secret123",
+    "mqttHost": "192.168.14.1"
+}</code></pre>
+
+      <h4>Tips</h4>
+      <p>Wrap parameters containing spaces in quotes. Configuration fields defined in the node can be overridden via <code>msg.*</code>. Ensure unique pin usage across sensors in different slots.</p>
+  </span></div></div>
+</script>
+
+
 <script type="text/javascript">
 RED.nodes.registerType('flasher', {
   category: 'network',
