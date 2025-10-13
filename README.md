@@ -216,6 +216,104 @@ These power the folder picker and the + / ✏️ buttons in the editor.
 
 ---
 
+---
+
+## Flasher — Node Help (Markdown)
+
+**Summary.** Flashes (deploys firmware to) an IoTempower node and prepares its folder structure: creates/renames node subfolders, initializes the system template, updates Wi‑Fi/MQTT settings, generates `setup.cpp` from selected sensors and filters, and executes `iot exec deploy serial` via USB or RFC2217 (“Mango”). The flash command can be defined in the node configuration and/or overridden by an incoming message.
+
+### Inputs
+| Property | Type | Required | Description |
+|---|---|:--:|---|
+| `folder` | string |  | Base folder containing the IoTempower system. Supports `~/` shorthand. |
+| `nodeName` | string |  | Name of the node’s subfolder inside `folder`. Used as the flash target. |
+| `controllerType` | string |  | Controller type (e.g., `Wemos D1 Mini`, `m5stickc_plus`, `m5stickc_plus2`). Written to `node.conf` and determines available pins. |
+| `deployMethod` | string |  | `usb` (default) or `mango` (RFC2217). Defines how `iot exec deploy serial` is called. |
+| `port` | string |  | For `usb`: path to the serial port (e.g., `/dev/ttyUSB0`). Ignored for `mango` (uses `rfc2217://192.168.14.1:5000`). |
+| `wifiSSID` | string |  | Wi‑Fi SSID. Written to `system.conf`. |
+| `wifiPassword` | string |  | Wi‑Fi password. Written to `system.conf`. |
+| `mqttHost` | string |  | MQTT broker host (default `192.168.14.1`). Written to `system.conf`. |
+| `sensor1`, `sensor2`, `sensor3` | string |  | Sensor codes from `devices.ini` (e.g., `dht22`, `bh1750`). Used to generate device calls in `setup.cpp`. |
+| `mqttChannel1`, `mqttChannel2`, `mqttChannel3` | string |  | MQTT channels for sensors (required for most sensors). |
+| `sensor1Pins`, `sensor2Pins`, `sensor3Pins` | string |  | Comma‑separated list of pins per sensor/controller (e.g., `D5,D6`). |
+| `filter1Type`, `filter2Type`, `filter3Type` | string |  | Filter names (e.g., `average`, `jmc_median`, `binarize` …) applied to each sensor chain. |
+| `filter1Params`, `filter2Params`, `filter3Params` | object or JSON string |  | Filter params (e.g., `{"buflen":100}`). |
+
+### Outputs
+**Port 1 — Flash result**  
+`msg.payload` is an object:
+```json
+{
+  "success": true,
+  "output": "...",
+  "port": "/dev/ttyUSB0",
+  "method": "usb"
+}
+```
+On failure:
+```json
+{
+  "success": false,
+  "error": "Detailed error message"
+}
+```
+
+### Details
+- **Folder preparation.** If `system.conf` is missing in `folder`, the node copies templates from `$IOTEMPOWER_ROOT/lib/system_template` (`node_template` + `system.conf`) and creates a `nodeName` subfolder.
+- **Configuration update.** Updates `system.conf` keys: `IOTEMPOWER_AP_NAME`, `IOTEMPOWER_AP_PASSWORD`, `IOTEMPOWER_MQTT_HOST`. Regenerates `setup.cpp`. Writes `controllerType` to `node.conf`.
+- **Sensors & filters.** Three slots (`1..3`) described by `sensorX` + `mqttChannelX` and optionally `sensorXPins`. Validates required pin count based on sensor type. Each measurement chain can include `filterXType` with `filterXParams`.
+- **Deployment.**
+  - `usb` — runs `iot exec deploy serial --upload-port "<port>"`. Defaults to `/dev/ttyUSB0` if not set. If an RFC2217 URL is provided in USB mode, the node warns and uses the default port.
+  - `mango` — uses `rfc2217://192.168.14.1:5000` and ignores `port`.
+- **Node status.** While running — **flashing**, on success — **done**, on error — **red status** with message. PID/process details are not displayed.
+
+### HTTP endpoints (for UI)
+Used by the editor to manage node subfolders:
+- `GET /flasher/list-nodes?folder=~/iot-systems/demo` — list subfolders
+- `POST /flasher/create-node` `{ folder, nodeName }`
+- `POST /flasher/rename-node` `{ folder, from, to }`
+
+### Validation & common errors
+The node validates:
+- Existence/creatability of `folder`.
+- Correct `wifiSSID` / `wifiPassword` / `mqttHost` when updating `system.conf`.
+- Presence of sensors in `devices.ini`, non‑empty `mqttChannelX`, and sufficient number of pins per sensor.
+On failure, returns `payload.success=false` with a descriptive `payload.error`.
+
+### Examples
+**USB deploy (default port)**
+```json
+{
+  "folder": "~/iot-systems/demo",
+  "nodeName": "kitchen",
+  "controllerType": "Wemos D1 Mini",
+  "deployMethod": "usb",
+  "sensor1": "dht22",
+  "mqttChannel1": "home/kitchen/temperature",
+  "sensor1Pins": "D5",
+  "filter1Type": "average",
+  "filter1Params": { "buflen": 50 }
+}
+```
+
+**RFC2217 (“Mango”)**
+```json
+{
+  "folder": "~/iot-systems/demo",
+  "nodeName": "livingroom",
+  "controllerType": "m5stickc_plus2",
+  "deployMethod": "mango",
+  "wifiSSID": "MyAP",
+  "wifiPassword": "secret123",
+  "mqttHost": "192.168.14.1"
+}
+```
+
+### Tips
+- Quote parameters that contain spaces.
+- Any field configured on the node can be overridden via `msg.*`.
+- Ensure unique pin usage across sensors in different slots.
+
 ## License
 
 MIT © Fedir Kyrychenko
