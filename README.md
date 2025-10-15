@@ -43,7 +43,7 @@ A single Node-RED runtime node that **initializes & configures** an IoTempower n
 
 ```bash
 # Clone the repository
-git clone https://github.com/fedirky/IoTempire-newNodes.git
+git clone https://github.com/fedirky/IoTempire-Node-RED-web-flasher.git
 cd IoTempire-newNodes/node-red-contrib-flasher
 
 # Install & link the node
